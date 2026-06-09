@@ -1,6 +1,9 @@
 <resources>
     <string name="app_name">bzzq</string>
     <string name="xposed_description">API 101 research module active only on NPatch, Vector, or LSPosed versions newer than 7700.</string>
-    <string name="purify_story_video_ad_title">豎屏視頻廣告淨化</string>
-    <string name="purify_story_video_ad_blocked_count">累計攔截：%1$d</string>
+    <string name="skip_splash_ad_title">跳过开屏广告</string>
+    <string name="unlock_video_features_title">解锁视频权益</string>
+    <string name="skip_mini_game_reward_ad_title">跳过小游戏奖励广告</string>
+    <string name="purify_story_video_ad_title">竖屏视频广告净化</string>
+    <string name="purify_story_video_ad_blocked_count">累计拦截：%1$d</string>
 </resources>

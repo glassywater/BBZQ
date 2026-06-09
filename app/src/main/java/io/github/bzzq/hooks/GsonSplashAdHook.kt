@@ -1,5 +1,6 @@
 package io.github.bzzq.hooks
 
+import io.github.bzzq.ModuleSettings
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import java.lang.reflect.Field
@@ -21,11 +22,14 @@ class GsonSplashAdHook(
             return
         }
 
+        val prefs = xposed.getRemotePreferences(ModuleSettings.PREFS_NAME)
         fromJsonMethods.forEach { method ->
             xposed.hook(method).intercept { chain ->
                 val result = chain.proceed()
-                runCatching { processGsonResult(result, log) }
-                    .onFailure { log("Failed to process Gson splash response", it) }
+                if (ModuleSettings.isSkipSplashAdEnabled(prefs)) {
+                    runCatching { processGsonResult(result, log) }
+                        .onFailure { log("Failed to process Gson splash response", it) }
+                }
                 result
             }
         }

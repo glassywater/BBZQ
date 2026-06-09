@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import io.github.bzzq.ModuleSettings
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import java.lang.reflect.Field
@@ -16,20 +17,22 @@ class MiniGameRewardAdHook(
 ) : AppHook {
     override fun install(xposed: XposedInterface, packageReady: PackageReadyParam, log: (String, Throwable?) -> Unit) {
         val classLoader = packageReady.getClassLoader()
+        val prefs = xposed.getRemotePreferences(ModuleSettings.PREFS_NAME)
         val rewardActivityClass = findClass(classLoader, REWARD_ACTIVITY_CLASS_NAME)
         val rewardHeaderViewClass = findClass(classLoader, REWARD_HEADER_VIEW_CLASS_NAME)
         val countDownTextViewClass = findClass(classLoader, COUNT_DOWN_TEXT_VIEW_CLASS_NAME)
         val jumpClockField = findJumpClockField(classLoader)
 
-        hookRewardActivity(xposed, rewardActivityClass, jumpClockField, log)
-        hookRewardHeaderView(xposed, rewardHeaderViewClass, log)
-        hookCountDownTextView(xposed, countDownTextViewClass, log)
+        hookRewardActivity(xposed, rewardActivityClass, jumpClockField, prefs, log)
+        hookRewardHeaderView(xposed, rewardHeaderViewClass, prefs, log)
+        hookCountDownTextView(xposed, countDownTextViewClass, prefs, log)
     }
 
     private fun hookRewardActivity(
         xposed: XposedInterface,
         activityClass: Class<*>?,
         jumpClockField: Field?,
+        prefs: android.content.SharedPreferences,
         log: (String, Throwable?) -> Unit,
     ) {
         if (activityClass == null) {
@@ -40,20 +43,24 @@ class MiniGameRewardAdHook(
         runCatching {
             hookActivityMethod(xposed, activityClass.getDeclaredMethod("onCreate", Bundle::class.java)) { chain ->
                 val result = chain.proceed()
-                scheduleRewardButtonSweep(chain.getThisObject())
+                if (ModuleSettings.isSkipMiniGameRewardAdEnabled(prefs)) {
+                    scheduleRewardButtonSweep(chain.getThisObject())
+                }
                 result
             }
 
             hookActivityMethod(xposed, activityClass.getDeclaredMethod("onResume")) { chain ->
-                backdateJumpClock(jumpClockField)
+                if (ModuleSettings.isSkipMiniGameRewardAdEnabled(prefs)) backdateJumpClock(jumpClockField)
                 val result = chain.proceed()
-                scheduleRewardButtonSweep(chain.getThisObject())
+                if (ModuleSettings.isSkipMiniGameRewardAdEnabled(prefs)) {
+                    scheduleRewardButtonSweep(chain.getThisObject())
+                }
                 result
             }
 
             hookActivityMethod(xposed, activityClass.getDeclaredMethod("onStop")) { chain ->
                 val result = chain.proceed()
-                backdateJumpClock(jumpClockField)
+                if (ModuleSettings.isSkipMiniGameRewardAdEnabled(prefs)) backdateJumpClock(jumpClockField)
                 result
             }
             log("Installed mini game reward activity hook for ${activityClass.name}", null)
@@ -76,6 +83,7 @@ class MiniGameRewardAdHook(
     private fun hookRewardHeaderView(
         xposed: XposedInterface,
         headerClass: Class<*>?,
+        prefs: android.content.SharedPreferences,
         log: (String, Throwable?) -> Unit,
     ) {
         if (headerClass == null) {
@@ -84,9 +92,9 @@ class MiniGameRewardAdHook(
         }
 
         runCatching {
-            hookSetTotalTime(xposed, headerClass)
-            hookSetElapsedTime(xposed, headerClass)
-            hookStartTimer(xposed, headerClass)
+            hookSetTotalTime(xposed, headerClass, prefs)
+            hookSetElapsedTime(xposed, headerClass, prefs)
+            hookStartTimer(xposed, headerClass, prefs)
             log("Installed mini game reward header timer hook for ${headerClass.name}", null)
         }.onFailure {
             log("Failed to install mini game reward header timer hook", it)
@@ -96,6 +104,7 @@ class MiniGameRewardAdHook(
     private fun hookCountDownTextView(
         xposed: XposedInterface,
         textClass: Class<*>?,
+        prefs: android.content.SharedPreferences,
         log: (String, Throwable?) -> Unit,
     ) {
         if (textClass == null) {
@@ -104,19 +113,25 @@ class MiniGameRewardAdHook(
         }
 
         runCatching {
-            hookSetTotalTime(xposed, textClass)
+            hookSetTotalTime(xposed, textClass, prefs)
             log("Installed mini game countdown text hook for ${textClass.name}", null)
         }.onFailure {
             log("Failed to install mini game countdown text hook", it)
         }
     }
 
-    private fun hookSetTotalTime(xposed: XposedInterface, targetClass: Class<*>) {
+    private fun hookSetTotalTime(
+        xposed: XposedInterface,
+        targetClass: Class<*>,
+        prefs: android.content.SharedPreferences,
+    ) {
         val method = targetClass.getDeclaredMethod("setTotalTime", Integer.TYPE)
         method.isAccessible = true
         xposed.hook(method)
             .setExceptionMode(XposedInterface.ExceptionMode.PASSTHROUGH)
             .intercept { chain ->
+                if (!ModuleSettings.isSkipMiniGameRewardAdEnabled(prefs)) return@intercept chain.proceed()
+
                 val total = (chain.getArg(0) as? Number)?.toInt() ?: 0
                 if (total > 1) {
                     chain.proceed(arrayOf<Any>(1))
@@ -126,12 +141,18 @@ class MiniGameRewardAdHook(
             }
     }
 
-    private fun hookSetElapsedTime(xposed: XposedInterface, targetClass: Class<*>) {
+    private fun hookSetElapsedTime(
+        xposed: XposedInterface,
+        targetClass: Class<*>,
+        prefs: android.content.SharedPreferences,
+    ) {
         val method = targetClass.getDeclaredMethod("setElapsedTime", java.lang.Long.TYPE)
         method.isAccessible = true
         xposed.hook(method)
             .setExceptionMode(XposedInterface.ExceptionMode.PASSTHROUGH)
             .intercept { chain ->
+                if (!ModuleSettings.isSkipMiniGameRewardAdEnabled(prefs)) return@intercept chain.proceed()
+
                 val elapsed = (chain.getArg(0) as? Number)?.toLong() ?: 0L
                 if (elapsed < REWARD_FAST_FORWARD_MS) {
                     chain.proceed(arrayOf<Any>(REWARD_FAST_FORWARD_MS))
@@ -141,13 +162,19 @@ class MiniGameRewardAdHook(
             }
     }
 
-    private fun hookStartTimer(xposed: XposedInterface, targetClass: Class<*>) {
+    private fun hookStartTimer(
+        xposed: XposedInterface,
+        targetClass: Class<*>,
+        prefs: android.content.SharedPreferences,
+    ) {
         val method = targetClass.getDeclaredMethod("startTimer")
         method.isAccessible = true
         xposed.hook(method)
             .setExceptionMode(XposedInterface.ExceptionMode.PASSTHROUGH)
             .intercept { chain ->
-                invokeSetElapsedTime(chain.getThisObject(), REWARD_FAST_FORWARD_MS)
+                if (ModuleSettings.isSkipMiniGameRewardAdEnabled(prefs)) {
+                    invokeSetElapsedTime(chain.getThisObject(), REWARD_FAST_FORWARD_MS)
+                }
                 chain.proceed()
             }
     }

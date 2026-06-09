@@ -12,7 +12,7 @@ import android.widget.TextView
 class SettingsActivity : Activity() {
     private val prefs by lazy { getSharedPreferences(ModuleSettings.PREFS_NAME, MODE_PRIVATE) }
     private val tagCheckBoxes = mutableMapOf<String, CheckBox>()
-    private lateinit var enabledSwitch: Switch
+    private lateinit var storyVideoAdSwitch: Switch
     private lateinit var blockedCountView: TextView
     private var refreshing = false
 
@@ -29,7 +29,23 @@ class SettingsActivity : Activity() {
             textSize = 24f
         })
 
-        enabledSwitch = Switch(this).apply {
+        root.addView(createFeatureSwitch(
+            R.string.skip_splash_ad_title,
+            ModuleSettings.KEY_SKIP_SPLASH_AD_ENABLED,
+            true,
+        ))
+        root.addView(createFeatureSwitch(
+            R.string.unlock_video_features_title,
+            ModuleSettings.KEY_UNLOCK_VIDEO_FEATURES_ENABLED,
+            true,
+        ))
+        root.addView(createFeatureSwitch(
+            R.string.skip_mini_game_reward_ad_title,
+            ModuleSettings.KEY_SKIP_MINI_GAME_REWARD_AD_ENABLED,
+            true,
+        ))
+
+        storyVideoAdSwitch = Switch(this).apply {
             text = getString(R.string.purify_story_video_ad_title)
             textSize = 18f
             setPadding(0, dp(16), 0, dp(8))
@@ -48,7 +64,7 @@ class SettingsActivity : Activity() {
                 refresh()
             }
         }
-        root.addView(enabledSwitch)
+        root.addView(storyVideoAdSwitch)
 
         ModuleSettings.storyVideoAdTags.forEach { tag ->
             val checkBox = CheckBox(this).apply {
@@ -79,12 +95,24 @@ class SettingsActivity : Activity() {
         refresh()
     }
 
+    private fun createFeatureSwitch(titleRes: Int, key: String, defaultValue: Boolean): Switch {
+        return Switch(this).apply {
+            text = getString(titleRes)
+            textSize = 18f
+            setPadding(0, dp(16), 0, dp(8))
+            isChecked = prefs.getBoolean(key, defaultValue)
+            setOnCheckedChangeListener { _, isChecked ->
+                if (!refreshing) prefs.edit().putBoolean(key, isChecked).apply()
+            }
+        }
+    }
+
     private fun refresh() {
         refreshing = true
         val enabled = ModuleSettings.isPurifyStoryVideoAdEnabled(prefs)
         val selectedTags = ModuleSettings.getPurifyStoryVideoAdTags(prefs)
 
-        enabledSwitch.isChecked = enabled
+        storyVideoAdSwitch.isChecked = enabled
         tagCheckBoxes.forEach { (key, checkBox) ->
             checkBox.isEnabled = enabled
             checkBox.isChecked = key in selectedTags

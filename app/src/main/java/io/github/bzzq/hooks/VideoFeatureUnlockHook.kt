@@ -1,5 +1,7 @@
 package io.github.bzzq.hooks
 
+import android.content.SharedPreferences
+import io.github.bzzq.ModuleSettings
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import java.lang.reflect.Field
@@ -14,19 +16,20 @@ class VideoFeatureUnlockHook(
 
     override fun install(xposed: XposedInterface, packageReady: PackageReadyParam, log: (String, Throwable?) -> Unit) {
         val classLoader = packageReady.getClassLoader()
+        val prefs = xposed.getRemotePreferences(ModuleSettings.PREFS_NAME)
 
         // 1. Enable trial quality in SceneControl
-        hookSetBoolean(xposed, classLoader, SCENE_CONTROL_CLASS, SET_IS_NEED_TRIAL, true, log)
-        hookGetBoolean(xposed, classLoader, SCENE_CONTROL_CLASS, GET_IS_NEED_TRIAL, true, log)
+        hookSetBoolean(xposed, classLoader, SCENE_CONTROL_CLASS, SET_IS_NEED_TRIAL, true, prefs, log)
+        hookGetBoolean(xposed, classLoader, SCENE_CONTROL_CLASS, GET_IS_NEED_TRIAL, true, prefs, log)
 
         // 2. Enable trial quality in VideoVod
-        hookSetBoolean(xposed, classLoader, VIDEO_VOD_CLASS, SET_IS_NEED_TRIAL, true, log)
-        hookGetBoolean(xposed, classLoader, VIDEO_VOD_CLASS, GET_IS_NEED_TRIAL, true, log)
+        hookSetBoolean(xposed, classLoader, VIDEO_VOD_CLASS, SET_IS_NEED_TRIAL, true, prefs, log)
+        hookGetBoolean(xposed, classLoader, VIDEO_VOD_CLASS, GET_IS_NEED_TRIAL, true, prefs, log)
 
         // 3. Bypass VIP requirements in StreamInfo (various versions)
         STREAM_INFO_CLASSES.forEach { className ->
-            hookRedirectFieldToMethod(xposed, classLoader, className, GET_VIP_FREE, NEED_VIP_FIELD, log)
-            hookGetBoolean(xposed, classLoader, className, GET_NEED_VIP, false, log)
+            hookRedirectFieldToMethod(xposed, classLoader, className, GET_VIP_FREE, NEED_VIP_FIELD, prefs, log)
+            hookGetBoolean(xposed, classLoader, className, GET_NEED_VIP, false, prefs, log)
         }
     }
 
@@ -36,12 +39,15 @@ class VideoFeatureUnlockHook(
         className: String,
         methodName: String,
         fixedValue: Boolean,
+        prefs: SharedPreferences,
         log: (String, Throwable?) -> Unit
     ) {
         runCatching {
             val clazz = Class.forName(className, false, cl)
             val method = clazz.getDeclaredMethod(methodName)
-            xposed.hook(method).intercept { fixedValue }
+            xposed.hook(method).intercept { chain ->
+                if (ModuleSettings.isUnlockVideoFeaturesEnabled(prefs)) fixedValue else chain.proceed()
+            }
             log("Installed constant return hook: $className.$methodName() -> $fixedValue", null)
         }.onFailure {
             // Silently fail if class or method is not found
@@ -54,13 +60,18 @@ class VideoFeatureUnlockHook(
         className: String,
         methodName: String,
         forcedValue: Boolean,
+        prefs: SharedPreferences,
         log: (String, Throwable?) -> Unit
     ) {
         runCatching {
             val clazz = Class.forName(className, false, cl)
             val method = clazz.getDeclaredMethod(methodName, Boolean::class.javaPrimitiveType)
             xposed.hook(method).intercept { chain ->
-                chain.proceed(arrayOf(forcedValue))
+                if (ModuleSettings.isUnlockVideoFeaturesEnabled(prefs)) {
+                    chain.proceed(arrayOf(forcedValue))
+                } else {
+                    chain.proceed()
+                }
             }
             log("Installed argument force hook: $className.$methodName($forcedValue)", null)
         }.onFailure {
@@ -74,6 +85,7 @@ class VideoFeatureUnlockHook(
         className: String,
         methodName: String,
         fieldName: String,
+        prefs: SharedPreferences,
         log: (String, Throwable?) -> Unit
     ) {
         runCatching {
@@ -82,7 +94,7 @@ class VideoFeatureUnlockHook(
             val field = findField(clazz, fieldName)?.apply { isAccessible = true } ?: return@runCatching
             xposed.hook(method).intercept { chain ->
                 val instance = chain.thisObject
-                if (instance != null) {
+                if (ModuleSettings.isUnlockVideoFeaturesEnabled(prefs) && instance != null) {
                     field.get(instance)
                 } else {
                     chain.proceed()
