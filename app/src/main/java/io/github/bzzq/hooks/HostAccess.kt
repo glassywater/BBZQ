@@ -12,6 +12,11 @@ internal object HostAccess {
             runCatching { Class.forName(name, false, classLoader) }.getOrNull()
         }
 
+    fun findClasses(classLoader: ClassLoader, vararg names: String): List<Class<*>> =
+        names.mapNotNull { name ->
+            runCatching { Class.forName(name, false, classLoader) }.getOrNull()
+        }
+
     fun findField(type: Class<*>, vararg names: String): Field? {
         var current: Class<*>? = type
         while (current != null) {
