@@ -28,6 +28,7 @@ object HookRegistry {
         ::SharePurifyHook,
         ::FullNumberFormatHook,
         ::UnlockCommentGifHook,
+        ::SkipVideoAdHook,
     )
 
     fun handlePackageReady(

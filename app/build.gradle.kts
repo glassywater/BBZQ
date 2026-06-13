@@ -89,4 +89,5 @@ dependencies {
     compileOnly(libs.libxposed.api)
     implementation(libs.dexkit)
     implementation(libs.mmkv)
+    implementation(libs.okhttp)
 }
