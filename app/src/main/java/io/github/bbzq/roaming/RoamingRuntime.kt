@@ -3,6 +3,7 @@
 import android.content.Context
 import android.content.SharedPreferences
 import io.github.bbzq.ModuleSettingsBridge
+import io.github.bbzq.roaming.hook.BottomBarHook
 import io.github.bbzq.roaming.hook.FreeCopyHook
 import io.github.bbzq.roaming.hook.RewardAdHook
 import io.github.bbzq.roaming.hook.SettingHook
@@ -44,6 +45,7 @@ object RoamingRuntime {
                 ::SplashAdHook,
                 ::ShareHook,
                 ::FreeCopyHook,
+                ::BottomBarHook,
                 ::StoryPlayerAdHook,
                 ::RewardAdHook,
             )

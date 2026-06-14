@@ -20,6 +20,9 @@ object ModuleSettings {
     const val KEY_BLOCK_LIVE_ROOM_QOE_POPUP_ENABLED = "block_live_room_qoe_popup_enabled"
     const val KEY_DISABLE_LONG_PRESS_COPY_ENABLED = "disable_long_press_copy_enabled"
     const val KEY_ENHANCE_LONG_PRESS_COPY_ENABLED = "enhance_long_press_copy_enabled"
+    const val KEY_CUSTOM_BOTTOM_BAR_ENABLED = "custom_bottom_bar_enabled"
+    const val KEY_HIDDEN_BOTTOM_BAR_ITEMS = "hidden_bottom_bar_items"
+    const val KEY_KNOWN_BOTTOM_BAR_ITEMS = "known_bottom_bar_items"
     const val KEY_FULL_NUMBER_FORMAT_ENABLED = "full_number_format_enabled"
     const val KEY_UNLOCK_COMMENT_GIF_ENABLED = "unlock_comment_gif_enabled"
     const val KEY_LAST_ACCESS_KEY = "last_access_key"
@@ -84,6 +87,15 @@ object ModuleSettings {
 
     fun isPurifyShareEnabled(prefs: SharedPreferences): Boolean =
         prefs.getBoolean(KEY_PURIFY_SHARE_ENABLED, false)
+
+    fun isCustomBottomBarEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_CUSTOM_BOTTOM_BAR_ENABLED, false)
+
+    fun getHiddenBottomBarItems(prefs: SharedPreferences): Set<String> =
+        prefs.getStringSet(KEY_HIDDEN_BOTTOM_BAR_ITEMS, emptySet()) ?: emptySet()
+
+    fun getKnownBottomBarItems(prefs: SharedPreferences): Set<String> =
+        prefs.getStringSet(KEY_KNOWN_BOTTOM_BAR_ITEMS, emptySet()) ?: emptySet()
 
     fun isFullNumberFormatEnabled(prefs: SharedPreferences): Boolean =
         prefs.getBoolean(KEY_FULL_NUMBER_FORMAT_ENABLED, false)

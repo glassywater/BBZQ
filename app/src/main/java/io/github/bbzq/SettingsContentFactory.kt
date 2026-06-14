@@ -20,8 +20,10 @@ class SettingsContentFactory(
     private val prefs: SharedPreferences,
 ) {
     private val tagCheckBoxes = mutableMapOf<String, CheckBox>()
+    private val bottomBarItemCheckBoxes = mutableMapOf<String, CheckBox>()
     private lateinit var disableLongPressCopySwitch: Switch
     private lateinit var enhanceLongPressCopySwitch: Switch
+    private lateinit var bottomBarSwitch: Switch
     private lateinit var storyVideoAdSwitch: Switch
     private lateinit var blockedCountView: TextView
     private var refreshing = false
@@ -41,6 +43,9 @@ class SettingsContentFactory(
 
         page.addView(createSectionLabel("启动净化"))
         page.addView(createSectionCard(startupRows()))
+
+        page.addView(createSectionLabel("界面定制"))
+        page.addView(createSectionCard(bottomBarRows()))
 
         page.addView(createSectionLabel("播放净化"))
         page.addView(createSectionCard(playbackRows()))
@@ -108,6 +113,30 @@ class SettingsContentFactory(
                 true,
             ),
         )
+    }
+
+    private fun bottomBarRows(): List<View> {
+        val rows = mutableListOf<View>()
+        rows += createSwitchRow(
+            "自定义底栏",
+            "隐藏不需要的底栏入口；首次使用需重启B站并打开首页后加载底栏数据。",
+            ModuleSettings.KEY_CUSTOM_BOTTOM_BAR_ENABLED,
+            false,
+        ) {
+            bottomBarSwitch = it
+        }
+
+        val items = bottomBarItems()
+        if (items.isEmpty()) {
+            rows += createInfoRow(
+                "底栏项目",
+                "尚未读取到底栏数据。开启后重启B站并打开首页，再回到 BBZQ 设置中选择需要隐藏的项目。",
+            )
+        } else {
+            rows += createInfoRow("底栏项目", "勾选代表保留在底栏；取消勾选后会被隐藏。")
+            rows += createBottomBarItemGroup(items)
+        }
+        return rows
     }
 
     private fun playbackRows(): List<View> {
@@ -232,6 +261,25 @@ class SettingsContentFactory(
         }
     }
 
+    private fun createBottomBarItemGroup(items: List<BottomBarItem>): View {
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            items.forEach { item ->
+                addView(CheckBox(context).apply {
+                    text = if (item.uri.isBlank()) item.name else "${item.name}\n${item.uri}"
+                    textSize = 14f
+                    setTextColor(TITLE_COLOR)
+                    setPadding(dp(6), dp(2), dp(6), dp(2))
+                    setOnCheckedChangeListener { _, _ ->
+                        if (!refreshing) saveHiddenBottomBarItems()
+                    }
+                    bottomBarItemCheckBoxes[item.id] = this
+                })
+            }
+        }
+    }
+
     private fun createSwitchRow(
         title: String,
         summary: String,
@@ -245,7 +293,8 @@ class SettingsContentFactory(
                 if (!refreshing) {
                     prefs.edit().putBoolean(key, isChecked).apply()
                     if (key == ModuleSettings.KEY_PURIFY_STORY_VIDEO_AD_ENABLED ||
-                        key == ModuleSettings.KEY_DISABLE_LONG_PRESS_COPY_ENABLED
+                        key == ModuleSettings.KEY_DISABLE_LONG_PRESS_COPY_ENABLED ||
+                        key == ModuleSettings.KEY_CUSTOM_BOTTOM_BAR_ENABLED
                     ) {
                         refresh()
                     }
@@ -288,6 +337,8 @@ class SettingsContentFactory(
         val selectedTags = ModuleSettings.getPurifyStoryVideoAdTags(prefs)
         val copyBaseEnabled = ModuleSettings.isDisableLongPressCopyEnabled(prefs)
         val copyEnhanceEnabled = copyBaseEnabled && ModuleSettings.isEnhanceLongPressCopyEnabled(prefs)
+        val bottomBarEnabled = ModuleSettings.isCustomBottomBarEnabled(prefs)
+        val hiddenBottomBarItems = ModuleSettings.getHiddenBottomBarItems(prefs)
 
         if (!copyBaseEnabled && prefs.getBoolean(ModuleSettings.KEY_ENHANCE_LONG_PRESS_COPY_ENABLED, false)) {
             prefs.edit().putBoolean(ModuleSettings.KEY_ENHANCE_LONG_PRESS_COPY_ENABLED, false).apply()
@@ -296,6 +347,11 @@ class SettingsContentFactory(
         disableLongPressCopySwitch.isChecked = copyBaseEnabled
         enhanceLongPressCopySwitch.isEnabled = copyBaseEnabled
         enhanceLongPressCopySwitch.isChecked = copyEnhanceEnabled
+        bottomBarSwitch.isChecked = bottomBarEnabled
+        bottomBarItemCheckBoxes.forEach { (id, checkBox) ->
+            checkBox.isEnabled = bottomBarEnabled
+            checkBox.isChecked = id !in hiddenBottomBarItems
+        }
 
         storyVideoAdSwitch.isChecked = storyEnabled
         tagCheckBoxes.forEach { (key, checkBox) ->
@@ -314,10 +370,44 @@ class SettingsContentFactory(
             .apply()
     }
 
+    private fun saveHiddenBottomBarItems() {
+        prefs.edit()
+            .putStringSet(ModuleSettings.KEY_HIDDEN_BOTTOM_BAR_ITEMS, hiddenBottomBarItemIds().toMutableSet())
+            .apply()
+    }
+
     private fun selectedTagKeys(): Set<String> =
         tagCheckBoxes.filterValues { it.isChecked }.keys.toSet()
 
+    private fun hiddenBottomBarItemIds(): Set<String> =
+        bottomBarItemCheckBoxes.filterValues { !it.isChecked }.keys.toSet()
+
+    private fun bottomBarItems(): List<BottomBarItem> =
+        ModuleSettings.getKnownBottomBarItems(prefs)
+            .mapNotNull(::parseBottomBarItem)
+            .distinctBy(BottomBarItem::id)
+            .sortedBy(BottomBarItem::order)
+
+    private fun parseBottomBarItem(raw: String): BottomBarItem? {
+        val parts = raw.split('\t', limit = 4)
+        if (parts.size == 4) {
+            val order = parts[0].toIntOrNull() ?: return null
+            return BottomBarItem(order, parts[1], parts[2], parts[3])
+        }
+        if (parts.size == 3) {
+            return BottomBarItem(Int.MAX_VALUE, parts[0], parts[1], parts[2])
+        }
+        return null
+    }
+
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
+
+    private data class BottomBarItem(
+        val order: Int,
+        val id: String,
+        val name: String,
+        val uri: String,
+    )
 
     private companion object {
         private val PAGE_BACKGROUND = Color.parseColor("#F6F7F8")
