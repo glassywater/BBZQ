@@ -2,8 +2,11 @@
 
 import android.app.Application
 import android.content.ContentResolver
+import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
+import de.robv.android.xposed.XSharedPreferences
+import io.github.libxposed.api.XposedInterface
 import java.lang.ref.WeakReference
 import java.lang.reflect.Method
 
@@ -16,7 +19,7 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
         val now = System.currentTimeMillis()
         synchronized(cacheLock) {
             if (localCache.isNotEmpty() && now - lastLoadTime < CACHE_EXPIRATION) return
-            val loaded = getAllFromProvider()
+            val loaded = getAllFromSources()
                 .mapNotNull { (key, value) -> value?.let { key to it } }
                 .toMap()
             if (loaded.isNotEmpty()) localCache = loaded
@@ -24,11 +27,42 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
         }
     }
 
+    private fun getAllFromSources(): Map<String, Any?> =
+        getAllFromRemotePreferences().ifEmpty {
+            getAllFromProvider().ifEmpty {
+                getAllFromXSharedPreferences().ifEmpty { fallbackDefaults() }
+            }
+        }
+
+    private fun getAllFromRemotePreferences(): Map<String, Any?> =
+        runCatching {
+            resolveRemotePreferences()?.all.orEmpty()
+        }.mapCatching { prefs ->
+            prefs.mapValues { it.value }.also {
+                if (it.isNotEmpty()) lastProviderStatus = "remote ok"
+            }
+        }.getOrElse {
+            lastProviderStatus = "remote ${it.javaClass.simpleName}: ${it.message}"
+            emptyMap()
+        }
+
     private fun getAllFromProvider(): Map<String, Any?> {
         val result = call(ModuleSettingsProvider.METHOD_GET_ALL, null, null)
         val values = result?.keySet()?.associateWith { key -> result.get(key) }.orEmpty()
-        return values.ifEmpty { fallbackDefaults() }
+        return values
     }
+
+    private fun getAllFromXSharedPreferences(): Map<String, Any?> =
+        runCatching {
+            XSharedPreferences(MODULE_PACKAGE, ModuleSettings.PREFS_NAME).also { it.reload() }
+        }.mapCatching { prefs ->
+            prefs.all.also {
+                lastProviderStatus = if (it.isEmpty()) "xshared empty" else "xshared ok"
+            }
+        }.getOrElse {
+            lastProviderStatus = "xshared ${it.javaClass.simpleName}: ${it.message}"
+            emptyMap()
+        }
 
     private fun fallbackDefaults(): Map<String, Any?> = mapOf(
         ModuleSettings.KEY_SKIP_SPLASH_AD_ENABLED to true,
@@ -136,21 +170,40 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
     private fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
         val resolver = resolveContentResolver() ?: return null
         return try {
-            resolver.call(ModuleSettingsProvider.CONTENT_URI, method, arg, extras)
-        } catch (_: IllegalArgumentException) {
+            resolver.call(ModuleSettingsProvider.CONTENT_URI, method, arg, extras).also {
+                lastProviderStatus = if (it == null) "$method returned null" else "$method ok"
+            }
+        } catch (e: IllegalArgumentException) {
+            lastProviderStatus = "$method IllegalArgumentException: ${e.message}"
             null
-        } catch (_: SecurityException) {
+        } catch (e: SecurityException) {
+            lastProviderStatus = "$method SecurityException: ${e.message}"
             null
         }
     }
 
     private fun resolveContentResolver(): ContentResolver? {
-        cachedApplication.get()?.let { return it.contentResolver }
+        cachedContext.get()?.let { return it.moduleAwareContentResolver() }
         val application = runCatching {
             currentApplicationMethod.invoke(null) as? Application
         }.getOrNull() ?: return null
-        cachedApplication = WeakReference(application)
-        return application.contentResolver
+        cachedContext = WeakReference(application)
+        return application.moduleAwareContentResolver()
+    }
+
+    private fun Context.moduleAwareContentResolver(): ContentResolver =
+        runCatching {
+            createPackageContext(MODULE_PACKAGE, Context.CONTEXT_IGNORE_SECURITY).contentResolver
+        }.getOrDefault(contentResolver)
+
+    private fun resolveRemotePreferences(): SharedPreferences? {
+        cachedRemotePrefs.get()?.let { return it }
+        val xposed = cachedXposed.get() ?: return null
+        return runCatching {
+            xposed.getRemotePreferences(ModuleSettings.PREFS_NAME)
+        }.getOrNull()?.also {
+            cachedRemotePrefs = WeakReference(it)
+        }
     }
 
     private inner class Editor : SharedPreferences.Editor {
@@ -251,7 +304,7 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
 
         override fun apply() {
             if (clearRequested) {
-                getAllFromProvider().keys.forEach { key ->
+                getAllFromSources().keys.forEach { key ->
                     call(ModuleSettingsProvider.METHOD_REMOVE, key, null)
                 }
             }
@@ -272,11 +325,21 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
 
     companion object {
         private const val CACHE_EXPIRATION = 5000L
-        private var cachedApplication = WeakReference<Application>(null)
+        private const val MODULE_PACKAGE = "io.github.bbzq"
+        private var cachedContext = WeakReference<Context>(null)
+        private var cachedXposed = WeakReference<XposedInterface>(null)
+        private var cachedRemotePrefs = WeakReference<SharedPreferences>(null)
         private val currentApplicationMethod: Method by lazy(LazyThreadSafetyMode.NONE) {
             Class.forName("android.app.ActivityThread")
                 .getDeclaredMethod("currentApplication")
                 .apply { isAccessible = true }
+        }
+        @Volatile var lastProviderStatus: String = "not called"
+            private set
+
+        fun attach(context: Context, xposed: XposedInterface? = null) {
+            cachedContext = WeakReference(context.applicationContext ?: context)
+            if (xposed != null) cachedXposed = WeakReference(xposed)
         }
 
         val instance: SharedPreferences by lazy(LazyThreadSafetyMode.NONE) {

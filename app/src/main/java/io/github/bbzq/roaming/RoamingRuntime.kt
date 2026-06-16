@@ -32,6 +32,7 @@ object RoamingRuntime {
         )
 
         env.log("BBZQ runtime starting for $packageName/$processName")
+        ModuleSettingsBridge.attach(env.hostContext, xposed)
 
         val hooks = when {
             processName.endsWith(":web") -> listOf(

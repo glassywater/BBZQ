@@ -12,7 +12,13 @@ import android.widget.ScrollView
 import android.widget.TextView
 
 class SettingsActivity : Activity() {
-    private val prefs by lazy { getSharedPreferences(ModuleSettings.PREFS_NAME, MODE_PRIVATE) }
+    private val prefs by lazy {
+        try {
+            getSharedPreferences(ModuleSettings.PREFS_NAME, MODE_WORLD_READABLE)
+        } catch (_: SecurityException) {
+            getSharedPreferences(ModuleSettings.PREFS_NAME, MODE_PRIVATE)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

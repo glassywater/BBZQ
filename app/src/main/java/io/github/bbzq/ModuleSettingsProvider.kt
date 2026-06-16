@@ -15,7 +15,7 @@ class ModuleSettingsProvider : ContentProvider() {
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
         enforceCaller()
-        val prefs = contextOrThrow().getSharedPreferences(ModuleSettings.PREFS_NAME, Context.MODE_PRIVATE)
+        val prefs = contextOrThrow().moduleSettingsPrefs()
 
         return when (method) {
             METHOD_GET_BOOLEAN -> bundleOfBoolean(prefs.getBoolean(requireKey(arg), extras?.getBoolean(EXTRA_DEFAULT) ?: false))
@@ -87,6 +87,13 @@ class ModuleSettingsProvider : ContentProvider() {
     ): Int = 0
 
     private fun contextOrThrow(): Context = checkNotNull(context)
+
+    private fun Context.moduleSettingsPrefs(): SharedPreferences =
+        try {
+            getSharedPreferences(ModuleSettings.PREFS_NAME, Context.MODE_WORLD_READABLE)
+        } catch (_: SecurityException) {
+            getSharedPreferences(ModuleSettings.PREFS_NAME, Context.MODE_PRIVATE)
+        }
 
     private fun requireKey(key: String?): String = requireNotNull(key) { "Preference key is required" }
 
