@@ -6,12 +6,16 @@ import android.util.Log
 import io.github.bbzq.feats.RoamingRuntime
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
+import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
+import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
+import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicBoolean
 
 class BbzqModule : XposedModule() {
     private val started = AtomicBoolean(false)
+    private var packageName: String = ""
     private var processName: String = ""
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
@@ -26,6 +30,7 @@ class BbzqModule : XposedModule() {
     override fun onPackageLoaded(param: PackageLoadedParam) {
         val packageName = param.getPackageName()
         if (packageName !in TARGET_PACKAGES || !param.isFirstPackage()) return
+        this.packageName = packageName
 
         val attach = Application::class.java.getDeclaredMethod("attach", Context::class.java)
         hook(attach)
@@ -36,22 +41,79 @@ class BbzqModule : XposedModule() {
                 val baseContext = chain.getArg(0) as? Context
                 val context = application ?: baseContext
                 if (context != null && started.compareAndSet(false, true)) {
-                    RoamingRuntime.start(
-                        xposed = this,
+                    startRuntime(
                         packageName = packageName,
                         processName = processName,
                         application = context,
                         classLoader = param.getDefaultClassLoader(),
-                    ) { message, throwable ->
-                        if (throwable == null) {
-                            log(Log.INFO, LOG_TAG, message)
-                        } else {
-                            log(Log.WARN, LOG_TAG, message, throwable)
-                        }
-                    }
+                    )
                 }
                 result
             }
+    }
+
+    override fun onHotReloading(param: HotReloadingParam): Boolean {
+        param.setSavedInstanceState(packageName.takeIf { it.isNotBlank() })
+        log(Log.INFO, LOG_TAG, "Hot reloading requested for ${packageName.ifBlank { processName }}")
+        return true
+    }
+
+    override fun onHotReloaded(param: HotReloadedParam) {
+        processName = param.getProcessName()
+        val application = resolveCurrentApplication()
+        val resolvedPackageName = application?.packageName
+            ?: (param.getSavedInstanceState() as? String)
+            ?: packageName
+
+        if (resolvedPackageName !in TARGET_PACKAGES) {
+            log(Log.WARN, LOG_TAG, "Skip hot reload outside target packages: $resolvedPackageName")
+            super.onHotReloaded(param)
+            return
+        }
+
+        val classLoader = application?.javaClass?.classLoader
+        if (application == null || classLoader == null) {
+            log(Log.WARN, LOG_TAG, "Hot reload skipped because current application is unavailable")
+            super.onHotReloaded(param)
+            return
+        }
+
+        packageName = resolvedPackageName
+        started.set(true)
+        startRuntime(
+            packageName = resolvedPackageName,
+            processName = processName,
+            application = application,
+            classLoader = classLoader,
+        )
+        super.onHotReloaded(param)
+    }
+
+    private fun startRuntime(
+        packageName: String,
+        processName: String,
+        application: Context,
+        classLoader: ClassLoader,
+    ) {
+        RoamingRuntime.start(
+            xposed = this,
+            packageName = packageName,
+            processName = processName,
+            application = application,
+            classLoader = classLoader,
+        ) { message, throwable ->
+            if (throwable == null) {
+                log(Log.INFO, LOG_TAG, message)
+            } else {
+                log(Log.WARN, LOG_TAG, message, throwable)
+            }
+        }
+    }
+
+    private fun resolveCurrentApplication(): Application? {
+        return runCatching {
+            currentApplicationMethod.invoke(null) as? Application
+        }.getOrNull()
     }
 
     private companion object {
@@ -63,5 +125,11 @@ class BbzqModule : XposedModule() {
             "tv.danmaku.bilibilihd",
             "com.bilibili.app.blue",
         )
+
+        private val currentApplicationMethod: Method by lazy(LazyThreadSafetyMode.NONE) {
+            Class.forName("android.app.ActivityThread")
+                .getDeclaredMethod("currentApplication")
+                .apply { isAccessible = true }
+        }
     }
 }
