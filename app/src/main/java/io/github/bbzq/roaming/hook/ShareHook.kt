@@ -2,7 +2,6 @@ package io.github.bbzq.roaming.hook
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.net.Uri
 import io.github.bbzq.ModuleSettings
 import io.github.bbzq.roaming.BaseRoamingHook
 import io.github.bbzq.roaming.RoamingEnv
@@ -15,8 +14,6 @@ import io.github.bbzq.roaming.hookBefore
 import io.github.bbzq.roaming.hookBeforeAllConstructors
 import io.github.bbzq.roaming.setObjectField
 import java.lang.reflect.Modifier
-import java.net.HttpURLConnection
-import java.net.URL
 
 class ShareHook(env: RoamingEnv) : BaseRoamingHook(env) {
     override fun startHook() {
@@ -227,15 +224,10 @@ class ShareHook(env: RoamingEnv) : BaseRoamingHook(env) {
     }
 
     private fun purifyText(text: String, transformAv: Boolean): String =
-        URL_REGEX.replace(text) { match ->
-            val raw = match.value
-            val suffix = raw.takeLastWhile { it in TRAILING_PUNCTUATION }
-            val url = raw.dropLast(suffix.length)
-            purifyLink(url, transformAv) + suffix
-        }
+        ShareLinkPurifier.purifyText(text, transformAv)
 
     private fun purifyLink(url: String, transformAv: Boolean): String =
-        transformUrl(resolveShortLink(url), transformAv)
+        ShareLinkPurifier.purifyLink(url, transformAv)
 
     private fun isMiniProgramEnabled(): Boolean =
         prefs.getBoolean(ModuleSettings.KEY_MINI_PROGRAM_ENABLED, false)
@@ -246,107 +238,9 @@ class ShareHook(env: RoamingEnv) : BaseRoamingHook(env) {
     private fun isShareTransformEnabled(transformAv: Boolean): Boolean =
         isPurifyShareEnabled() || transformAv
 
-    private fun String.isShortLink(): Boolean =
-        startsWith("https://bili2233.cn") ||
-            startsWith("http://bili2233.cn") ||
-            startsWith("https://b23.tv") ||
-            startsWith("http://b23.tv")
-
-    private fun resolveShortLink(url: String): String {
-        if (!url.isShortLink()) return url
-        val requestUrl = runCatching {
-            Uri.parse(url).buildUpon().query(null).fragment(null).build().toString()
-        }.getOrDefault(url)
-        return runCatching {
-            val conn = URL(requestUrl).openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.instanceFollowRedirects = false
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
-            conn.connect()
-            when (conn.responseCode) {
-                HttpURLConnection.HTTP_MOVED_TEMP,
-                HttpURLConnection.HTTP_MOVED_PERM,
-                307,
-                308,
-                -> conn.getHeaderField("Location") ?: url
-
-                else -> url
-            }
-        }.getOrDefault(url)
-    }
-
-    private fun transformUrl(url: String, transformAv: Boolean): String {
-        val target = runCatching { Uri.parse(url) }.getOrNull() ?: return url
-        val host = target.host.orEmpty()
-        if (host != "bilibili.com" && !host.endsWith(".bilibili.com")) return url
-
-        val bv = if (transformAv) {
-            target.path?.split("/")?.firstOrNull { it.startsWith("BV") && it.length == 12 }
-        } else {
-            null
-        }
-        val av = bv?.let { "av${bv2av(it)}" }
-        val newUrl = target.buildUpon().clearQuery().fragment(null)
-        if (av != null) {
-            newUrl.path(target.path!!.replace(bv, av))
-        }
-
-        target.encodedQuery
-            ?.split("&")
-            ?.map { it.split("=", limit = 2) }
-            ?.filter { it.size == 2 }
-            ?.forEach {
-                when (it[0]) {
-                    "p", "t" -> newUrl.appendQueryParameter(it[0], it[1])
-                    "start_progress" -> {
-                        newUrl.appendQueryParameter("start_progress", it[1])
-                        newUrl.appendQueryParameter("t", (it[1].toLongOrNull()?.div(1000) ?: 0).toString())
-                    }
-                }
-            }
-        newUrl.appendQueryParameter("unique_k", "2333")
-        return newUrl.build().toString()
-    }
-
-    private fun bv2av(bv: String): Long {
-        val table = HashMap<Char, Int>()
-        "FcwAPNKTMug3GV5Lj7EJnHpWsx4tb8haYeviqBz6rkCy12mUSDQX9RdoZf".forEachIndexed { index, char ->
-            table[char] = index
-        }
-        val positions = intArrayOf(11, 10, 3, 8, 4, 6, 5, 7, 9)
-        var result = 0L
-        positions.forEachIndexed { index, position ->
-            result += (table[bv[position]] ?: 0) * pow58(index)
-        }
-        return result.and(2251799813685247L).xor(23442827791579L)
-    }
-
-    private fun pow58(index: Int): Long {
-        var result = 1L
-        repeat(index) { result *= 58L }
-        return result
-    }
-
     private companion object {
-        private val URL_REGEX = Regex("""https?://\S+""")
         private const val BILI_TITLE = "\u54d4\u54e9\u54d4\u54e9"
         private const val BBZQ_SHARE_TEXT = "\u7531 BBZQ \u5206\u4eab"
         private const val WATCHED_PREFIX = "\u5df2\u89c2\u770b"
-        private val TRAILING_PUNCTUATION = setOf(
-            ')',
-            ']',
-            '>',
-            ',',
-            '.',
-            ';',
-            '!',
-            '?',
-            '\u3002',
-            '\uff0c',
-            '\uff1b',
-            '\uff01',
-            '\uff1f',
-        )
     }
 }
