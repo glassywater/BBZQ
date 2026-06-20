@@ -145,8 +145,8 @@
     <string name="bottom_bar_info_summary">勾选代表保留在底栏；取消勾选后会被隐藏。</string>
 
     <!-- 播放 -->
-    <string name="playback_hide_banner_title">屏蔽视频下方横幅广告</string>
-    <string name="playback_hide_banner_summary">阻止视频详情页播放器下方横幅广告创建。</string>
+    <string name="playback_hide_banner_title">屏蔽视频页广告</string>
+    <string name="playback_hide_banner_summary">阻止视频详情页播放器下方横幅、推荐列表、应用下载、好物推荐广告创建。</string>
     <string name="playback_skip_reward_title">跳过视频激励广告</string>
     <string name="playback_skip_reward_summary">自动尝试完成视频激励并获得奖励。</string>
     <string name="playback_auto_like_title">自动点赞视频</string>
