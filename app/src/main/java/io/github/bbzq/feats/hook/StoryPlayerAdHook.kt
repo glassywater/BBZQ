@@ -11,7 +11,6 @@ import io.github.bbzq.feats.from
 import io.github.bbzq.feats.getObjectField
 import io.github.bbzq.feats.hookAfter
 import io.github.bbzq.feats.hookBefore
-import io.github.bbzq.feats.methodsNamed
 import io.github.bbzq.feats.replace
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -36,13 +35,13 @@ class StoryPlayerAdHook(env: RoamingEnv) : BaseRoamingHook(env) {
 
     private fun installStoryFeedResponseHook(): Int {
         val storyFeedResponse = STORY_FEED_RESPONSE.from(classLoader) ?: return 0
-        val getItems = storyFeedResponse.methodsNamed("getItems")
-            .firstOrNull {
+        val getItems = storyFeedResponse.declaredMethods.firstOrNull {
+            it.name == "getItems" &&
                 it.parameterCount == 0 &&
-                    List::class.java.isAssignableFrom(it.returnType) &&
-                    !Modifier.isStatic(it.modifiers) &&
-                    !Modifier.isAbstract(it.modifiers)
-            }
+                List::class.java.isAssignableFrom(it.returnType) &&
+                !Modifier.isStatic(it.modifiers) &&
+                !Modifier.isAbstract(it.modifiers)
+        }
             ?: return 0
 
         env.hookAfter(getItems) { param ->
@@ -62,7 +61,7 @@ class StoryPlayerAdHook(env: RoamingEnv) : BaseRoamingHook(env) {
     private fun installStoryPagerPlayerHook(): Int {
         val storyPagerPlayer = "com.bilibili.video.story.player.StoryPagerPlayer".from(classLoader)
             ?: return 0
-        val methods = storyPagerPlayer.methodsNamed(null)
+        val methods = storyPagerPlayer.declaredMethods
             .filter(::isStoryListMethod)
             .distinctBy(Method::toGenericString)
             .toList()
@@ -90,14 +89,14 @@ class StoryPlayerAdHook(env: RoamingEnv) : BaseRoamingHook(env) {
 
     private fun installStoryAdRerankHook(): Int {
         val rerankTask = STORY_AD_RERANK_TASK.from(classLoader) ?: return 0
-        val invokeSuspend = rerankTask.methodsNamed("invokeSuspend")
-            .firstOrNull {
+        val invokeSuspend = rerankTask.declaredMethods.firstOrNull {
+            it.name == "invokeSuspend" &&
                 it.parameterCount == 1 &&
-                    it.parameterTypes[0] == Any::class.java &&
-                    it.returnType == Any::class.java &&
-                    !Modifier.isStatic(it.modifiers) &&
-                    !Modifier.isAbstract(it.modifiers)
-            }
+                it.parameterTypes[0] == Any::class.java &&
+                it.returnType == Any::class.java &&
+                !Modifier.isStatic(it.modifiers) &&
+                !Modifier.isAbstract(it.modifiers)
+        }
             ?: return 0
         val unit = KOTLIN_UNIT.from(classLoader)
             ?.getDeclaredField("INSTANCE")

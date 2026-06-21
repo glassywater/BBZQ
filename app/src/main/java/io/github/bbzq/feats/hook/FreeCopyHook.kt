@@ -79,9 +79,7 @@ class FreeCopyHook(env: RoamingEnv) : BaseRoamingHook(env) {
         val value = text.toString().trim()
         if (value.matches(BV_ID_REGEX)) return true
         if (isLikelyShareText(value)) return true
-
-        val stackTrace = Throwable().stackTrace
-        return stackTrace.any { it.isShareCopyFrame() || it.isModuleOwnCopyFrame() }
+        return false
     }
 
     private fun isLikelyShareText(value: String): Boolean =
@@ -138,15 +136,6 @@ class FreeCopyHook(env: RoamingEnv) : BaseRoamingHook(env) {
 
         @Volatile
         private var topActivity: WeakReference<Activity>? = null
-
-        private fun StackTraceElement.isShareCopyFrame(): Boolean =
-            className.contains(".share.", ignoreCase = true) ||
-                className.contains("sharewrapper", ignoreCase = true) ||
-                className.contains("p7848copy", ignoreCase = true)
-
-        private fun StackTraceElement.isModuleOwnCopyFrame(): Boolean =
-            className.startsWith("io.github.bbzq.SettingsContentFactory") ||
-                className.startsWith("io.github.bbzq.SettingsActivity")
     }
 }
 

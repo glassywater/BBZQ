@@ -53,7 +53,8 @@ class VideoCommentHook(env: RoamingEnv) : BaseRoamingHook(env) {
 
     private fun hookQuickReply(): Int {
         val viewModelClass = COMMENT_VIEW_MODEL_CLASSES.firstNotNullOfOrNull { it.from(classLoader) } ?: return 0
-        val candidates = viewModelClass.methodsNamed(null)
+        val candidates = viewModelClass.declaredMethods
+            .asSequence()
             .filter { method ->
                 method.returnType == Void.TYPE &&
                     method.parameterCount == 1 &&
@@ -84,8 +85,16 @@ class VideoCommentHook(env: RoamingEnv) : BaseRoamingHook(env) {
         val classes = CMT_VOTE_WIDGET_CLASSES + CMT_MOUNT_WIDGET_CLASSES + COMMENT_VOTE_VIEW_CLASSES
         classes.forEach { className ->
             val type = className.from(classLoader) ?: return@forEach
-            type.methodsNamed(null)
-                .filter { it.returnType == Void.TYPE && it.parameterCount >= 1 }
+            type.declaredMethods
+                .asSequence()
+                .filter { method ->
+                    method.returnType == Void.TYPE &&
+                        method.parameterCount == 1 &&
+                        !method.name.contains("lambda", ignoreCase = true) &&
+                        method.name in VOTE_WIDGET_METHOD_NAMES &&
+                        method.parameterTypes.firstOrNull().isVoteWidgetPayload()
+                }
+                .distinctBy(Method::toGenericString)
                 .forEach { method ->
                     env.hookBefore(method) { param ->
                         runCatching {
@@ -107,8 +116,16 @@ class VideoCommentHook(env: RoamingEnv) : BaseRoamingHook(env) {
 
         COMMENT_FOLLOW_WIDGET_CLASSES.forEach { className ->
             val type = className.from(classLoader) ?: return@forEach
-            type.methodsNamed(null)
-                .filter { it.returnType == Void.TYPE && it.parameterCount >= 1 }
+            type.declaredMethods
+                .asSequence()
+                .filter { method ->
+                    method.returnType == Void.TYPE &&
+                        method.parameterCount == 1 &&
+                        !method.name.contains("lambda", ignoreCase = true) &&
+                        method.name in FOLLOW_WIDGET_METHOD_NAMES &&
+                        method.parameterTypes.firstOrNull().isFollowWidgetPayload()
+                }
+                .distinctBy(Method::toGenericString)
                 .forEach { method ->
                     env.hookBefore(method) { param ->
                         runCatching {
@@ -125,8 +142,16 @@ class VideoCommentHook(env: RoamingEnv) : BaseRoamingHook(env) {
 
         COMMENT_HEADER_DECORATIVE_VIEW_CLASSES.forEach { className ->
             val type = className.from(classLoader) ?: return@forEach
-            type.methodsNamed(null)
-                .filter { it.parameterCount >= 1 && List::class.java.isAssignableFrom(it.parameterTypes[0]) }
+            type.declaredMethods
+                .asSequence()
+                .filter { method ->
+                    method.returnType == Void.TYPE &&
+                        method.parameterCount == 1 &&
+                        !method.name.contains("lambda", ignoreCase = true) &&
+                        method.name in HEADER_DECORATIVE_METHOD_NAMES &&
+                        List::class.java.isAssignableFrom(method.parameterTypes[0])
+                }
+                .distinctBy(Method::toGenericString)
                 .forEach { method ->
                     env.hookBefore(method) { param ->
                         runCatching {
@@ -284,14 +309,14 @@ class VideoCommentHook(env: RoamingEnv) : BaseRoamingHook(env) {
 
     private fun resolveReplyCleanupMethods(type: Class<*>): ReplyCleanupMethods =
         ReplyCleanupMethods(
-            clearQoe = type.methodsNamed(null)
+            clearQoe = type.declaredMethods
                 .firstOrNull { it.name == "clearQoe" && it.parameterCount == 0 },
-            clearOperations = type.methodsNamed(null)
+            clearOperations = type.declaredMethods
                 .filter { it.name in CLEAR_OPERATION_METHOD_NAMES && it.parameterCount == 0 }
                 .distinctBy(Method::toGenericString)
                 .toList(),
-            getRepliesList = type.methodsNamed("getRepliesList")
-                .firstOrNull { it.parameterCount == 0 && List::class.java.isAssignableFrom(it.returnType) },
+            getRepliesList = type.declaredMethods
+                .firstOrNull { it.name == "getRepliesList" && it.parameterCount == 0 && List::class.java.isAssignableFrom(it.returnType) },
         )
 
     private fun Class<*>.isCommentActionType(): Boolean {
@@ -370,6 +395,9 @@ class VideoCommentHook(env: RoamingEnv) : BaseRoamingHook(env) {
         )
 
         private val QUICK_REPLY_METHOD_NAMES = setOf("dispatchAction", "onAction", "submitAction")
+        private val VOTE_WIDGET_METHOD_NAMES = setOf("setData", "bindData", "update", "refresh", "bind", "onBind")
+        private val FOLLOW_WIDGET_METHOD_NAMES = setOf("setData", "bindData", "update", "refresh", "bind", "onBind")
+        private val HEADER_DECORATIVE_METHOD_NAMES = setOf("setData", "bindData", "update", "refresh", "submitList")
         private val CLEAR_OPERATION_METHOD_NAMES = setOf("clearOperation", "clearOperationV2")
         private val replyCleanupMethods = ConcurrentHashMap<Class<*>, ReplyCleanupMethods>()
     }
@@ -380,3 +408,30 @@ private data class ReplyCleanupMethods(
     val clearOperations: List<Method>,
     val getRepliesList: Method?,
 )
+
+private fun Class<*>?.isVoteWidgetPayload(): Boolean {
+    val type = this ?: return false
+    val simpleName = type.simpleName
+    val className = type.name
+    return simpleName.isNotBlank() && (
+        simpleName.contains("Vote", ignoreCase = true) ||
+            simpleName.contains("Reply", ignoreCase = true) ||
+            simpleName.contains("Item", ignoreCase = true) ||
+            simpleName.contains("Data", ignoreCase = true) ||
+            className.contains("vote", ignoreCase = true) ||
+            className.contains("reply", ignoreCase = true)
+        )
+}
+
+private fun Class<*>?.isFollowWidgetPayload(): Boolean {
+    val type = this ?: return false
+    val simpleName = type.simpleName
+    val className = type.name
+    return simpleName.isNotBlank() && (
+        simpleName.contains("Follow", ignoreCase = true) ||
+            simpleName.contains("User", ignoreCase = true) ||
+            simpleName.contains("Item", ignoreCase = true) ||
+            simpleName.contains("Data", ignoreCase = true) ||
+            className.contains("follow", ignoreCase = true)
+        )
+}

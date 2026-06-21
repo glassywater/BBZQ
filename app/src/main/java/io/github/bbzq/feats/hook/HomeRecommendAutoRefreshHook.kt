@@ -8,7 +8,6 @@ import io.github.bbzq.feats.allFields
 import io.github.bbzq.feats.allMethods
 import io.github.bbzq.feats.from
 import io.github.bbzq.feats.hookBefore
-import io.github.bbzq.feats.methodsNamed
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -43,7 +42,7 @@ class HomeRecommendAutoRefreshHook(env: RoamingEnv) : BaseRoamingHook(env) {
             return
         }
 
-        val autoRefreshMethod = componentClass.methodsNamed(null)
+        val autoRefreshMethod = componentClass.declaredMethods
             .firstOrNull {
                 it.parameterCount == 1 &&
                     it.parameterTypes[0] == flushClass &&
@@ -66,7 +65,7 @@ class HomeRecommendAutoRefreshHook(env: RoamingEnv) : BaseRoamingHook(env) {
             .toList()
         val requestParamClass = requestMethods.map { it.parameterTypes[0] }.distinct().singleOrNull()
         val requestSymbols = requestParamSymbols(requestParamClass, flushClass)?.copy(
-            resourceError = resourceClass.methodsNamed("error").firstOrNull {
+            resourceError = resourceClass.declaredMethods.firstOrNull {
                 Modifier.isStatic(it.modifiers) &&
                     it.parameterCount == 1 &&
                     Throwable::class.java.isAssignableFrom(it.parameterTypes[0]) &&

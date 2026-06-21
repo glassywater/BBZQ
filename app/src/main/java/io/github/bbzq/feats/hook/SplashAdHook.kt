@@ -48,7 +48,7 @@ class SplashAdHook(env: RoamingEnv) : BaseRoamingHook(env) {
     private fun findFastJsonParsers(): List<Method> {
         val json = FAST_JSON_CLASSES.firstNotNullOfOrNull { it.from(classLoader) }
             ?: return emptyList()
-        return json.methodsNamed(null)
+        return json.declaredMethods
             .filter {
                 Modifier.isStatic(it.modifiers) &&
                     it.name in FAST_JSON_PARSE_METHODS &&

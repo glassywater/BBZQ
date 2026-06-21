@@ -7,7 +7,6 @@ import io.github.bbzq.feats.RoamingEnv
 import io.github.bbzq.feats.from
 import io.github.bbzq.feats.getObjectField
 import io.github.bbzq.feats.hookBefore
-import io.github.bbzq.feats.methodsNamed
 import io.github.bbzq.feats.setIntField
 import io.github.bbzq.feats.setObjectField
 import java.lang.reflect.Constructor
@@ -29,7 +28,7 @@ class MineProfileHook(env: RoamingEnv) : BaseRoamingHook(env) {
             ?.apply { isAccessible = true }
             ?: return 0
         val fragmentClass = HOME_USER_CENTER_FRAGMENT_CLASSES.firstNotNullOfOrNull { it.from(classLoader) } ?: return 0
-        val buildMethod = fragmentClass.methodsNamed(null).firstOrNull { method ->
+        val buildMethod = fragmentClass.declaredMethods.firstOrNull { method ->
             method.parameterTypes.any { it == android.content.Context::class.java } &&
                 method.parameterTypes.any { java.util.List::class.java.isAssignableFrom(it) }
         } ?: return 0
@@ -67,7 +66,7 @@ class MineProfileHook(env: RoamingEnv) : BaseRoamingHook(env) {
         val vipField = fragmentClass.declaredFields.firstOrNull { vipViewClass.isAssignableFrom(it.type) }
             ?.apply { isAccessible = true }
             ?: return 0
-        val onResume = fragmentClass.methodsNamed("onResume").firstOrNull { it.parameterCount == 0 } ?: return 0
+        val onResume = fragmentClass.declaredMethods.firstOrNull { it.name == "onResume" && it.parameterCount == 0 } ?: return 0
 
         env.hookBefore(onResume) { param ->
             if (!ModuleSettings.isMineRemoveVipEnabled(prefs)) return@hookBefore
