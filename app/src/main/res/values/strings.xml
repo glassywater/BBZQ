@@ -187,4 +187,30 @@
     <string name="free_copy_title">自由复制</string>
     <string name="free_copy_original_button">复制原始内容</string>
 
+    <string name="section_comment_purify">视频评论区</string>
+    <string name="comment_disable_title">完全隐藏评论区</string>
+    <string name="comment_disable_summary">从视频详情页移除评论区标签。</string>
+    <string name="comment_no_quick_reply_title">阻止点击快速回复</string>
+    <string name="comment_no_quick_reply_summary">点击评论区文字时不再自动弹出回复输入框。</string>
+    <string name="comment_no_vote_title">移除评论区投票</string>
+    <string name="comment_no_vote_summary">过滤评论区中的顶踩票选与站队组件。</string>
+    <string name="comment_no_follow_title">移除评论区关注按钮</string>
+    <string name="comment_no_follow_summary">移除评论右侧的关注他人按钮。</string>
+    <string name="comment_no_search_title">移除评论区关键词高亮搜索</string>
+    <string name="comment_no_search_summary">禁用评论文字中的关键词点击搜索跳转。</string>
+    <string name="comment_no_empty_page_title">屏蔽空评论区引导</string>
+    <string name="comment_no_empty_page_summary">当暂无评论时不显示一键发送评论的引导提示。</string>
+    <string name="comment_no_qoe_title">移除评论区反馈弹窗</string>
+    <string name="comment_no_qoe_summary">屏蔽评论区体验反馈和问卷弹窗。</string>
+    <string name="comment_no_operation_title">移除评论区运营推广</string>
+    <string name="comment_no_operation_summary">隐藏评论区顶部的运营活动和推广横幅。</string>
+    <string name="section_mine_customize">我的页面定制</string>
+    <string name="mine_add_search_title">新增搜索入口</string>
+    <string name="mine_add_search_summary">在“更多服务”中插入搜索入口，便于隐藏首页标签时继续使用搜索。</string>
+    <string name="mine_add_messages_title">新增消息入口</string>
+    <string name="mine_add_messages_summary">在“更多服务”中插入消息/私信入口。</string>
+    <string name="mine_remove_vip_title">隐藏大会员入口</string>
+    <string name="mine_remove_vip_summary">移除“我的”页面中的大会员卡片展示。</string>
+    <string name="mine_keep_vip_space_title">保留大会员占位空间</string>
+    <string name="mine_keep_vip_space_summary">隐藏大会员入口时保留其占位空间，避免页面跳动。</string>
 </resources>

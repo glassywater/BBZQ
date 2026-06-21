@@ -21,7 +21,9 @@ import io.github.bbzq.feats.hook.SkipVideoAdHook
 import io.github.bbzq.feats.hook.SkipVideoAdProgressHook
 import io.github.bbzq.feats.hook.SplashAdHook
 import io.github.bbzq.feats.hook.StoryPlayerAdHook
+import io.github.bbzq.feats.hook.VideoCommentHook
 import io.github.bbzq.feats.hook.VideoDetailBannerAdHook
+import io.github.bbzq.feats.hook.MineProfileHook
 import io.github.libxposed.api.XposedInterface
 
 object RoamingRuntime {
@@ -74,6 +76,8 @@ object RoamingRuntime {
                 ::AutoLikeHook,
                 ::AccessKeyHook,
                 ::TeenagersModeHook,
+                ::VideoCommentHook,
+                ::MineProfileHook,
             )
         }
 

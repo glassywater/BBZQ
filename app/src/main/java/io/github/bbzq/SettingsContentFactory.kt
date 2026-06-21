@@ -91,6 +91,12 @@ class SettingsContentFactory(
                 pageRoot.addView(createSectionLabel(context.getString(R.string.section_playback_purify)))
                 pageRoot.addView(createSectionCard(playbackRows()))
 
+                pageRoot.addView(createSectionLabel(context.getString(R.string.section_comment_purify)))
+                pageRoot.addView(createSectionCard(commentRows()))
+
+                pageRoot.addView(createSectionLabel(context.getString(R.string.section_mine_customize)))
+                pageRoot.addView(createSectionCard(mineProfileRows()))
+
                 pageRoot.addView(createSectionLabel(context.getString(R.string.section_story_purify)))
                 pageRoot.addView(createSectionCard(storyRows()))
 
@@ -311,6 +317,88 @@ class SettingsContentFactory(
             false,
         )
         return rows
+    }
+
+    private fun commentRows(): List<View> {
+        return listOf(
+            createSwitchRow(
+                context.getString(R.string.comment_disable_title),
+                context.getString(R.string.comment_disable_summary),
+                ModuleSettings.KEY_COMMENT_DISABLE,
+                false,
+            ),
+            createSwitchRow(
+                context.getString(R.string.comment_no_quick_reply_title),
+                context.getString(R.string.comment_no_quick_reply_summary),
+                ModuleSettings.KEY_COMMENT_NO_QUICK_REPLY,
+                false,
+            ),
+            createSwitchRow(
+                context.getString(R.string.comment_no_vote_title),
+                context.getString(R.string.comment_no_vote_summary),
+                ModuleSettings.KEY_COMMENT_NO_VOTE,
+                false,
+            ),
+            createSwitchRow(
+                context.getString(R.string.comment_no_follow_title),
+                context.getString(R.string.comment_no_follow_summary),
+                ModuleSettings.KEY_COMMENT_NO_FOLLOW,
+                false,
+            ),
+            createSwitchRow(
+                context.getString(R.string.comment_no_search_title),
+                context.getString(R.string.comment_no_search_summary),
+                ModuleSettings.KEY_COMMENT_NO_SEARCH,
+                false,
+            ),
+            createSwitchRow(
+                context.getString(R.string.comment_no_empty_page_title),
+                context.getString(R.string.comment_no_empty_page_summary),
+                ModuleSettings.KEY_COMMENT_NO_EMPTY_PAGE,
+                false,
+            ),
+            createSwitchRow(
+                context.getString(R.string.comment_no_qoe_title),
+                context.getString(R.string.comment_no_qoe_summary),
+                ModuleSettings.KEY_COMMENT_NO_QOE,
+                false,
+            ),
+            createSwitchRow(
+                context.getString(R.string.comment_no_operation_title),
+                context.getString(R.string.comment_no_operation_summary),
+                ModuleSettings.KEY_COMMENT_NO_OPERATION,
+                false,
+            ),
+        )
+    }
+
+    private fun mineProfileRows(): List<View> {
+        return listOf(
+            createSwitchRow(
+                context.getString(R.string.mine_add_search_title),
+                context.getString(R.string.mine_add_search_summary),
+                ModuleSettings.KEY_MINE_ADD_SEARCH,
+                false,
+            ),
+            createSwitchRow(
+                context.getString(R.string.mine_add_messages_title),
+                context.getString(R.string.mine_add_messages_summary),
+                ModuleSettings.KEY_MINE_ADD_MESSAGES,
+                false,
+            ),
+            createSwitchRow(
+                context.getString(R.string.mine_remove_vip_title),
+                context.getString(R.string.mine_remove_vip_summary),
+                ModuleSettings.KEY_MINE_REMOVE_VIP,
+                false,
+            ),
+            createSwitchRow(
+                context.getString(R.string.mine_keep_vip_space_title),
+                context.getString(R.string.mine_keep_vip_space_summary),
+                ModuleSettings.KEY_MINE_KEEP_VIP_SPACE,
+                false,
+            ),
+        )
     }
 
     private fun skipVideoAdOverviewRows(): List<View> {

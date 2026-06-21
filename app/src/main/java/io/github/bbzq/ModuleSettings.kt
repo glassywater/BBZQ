@@ -45,6 +45,18 @@ object ModuleSettings {
     const val KEY_UNLOCK_COMMENT_GIF_ENABLED = "unlock_comment_gif_enabled"
     const val KEY_LAST_ACCESS_KEY = "last_access_key"
     const val KEY_HIDE_DESKTOP_ICON = "hide_desktop_icon"
+    const val KEY_COMMENT_DISABLE = "vid_comment_disable"
+    const val KEY_COMMENT_NO_QUICK_REPLY = "vid_comment_no_quick_reply"
+    const val KEY_COMMENT_NO_VOTE = "vid_comment_no_vote"
+    const val KEY_COMMENT_NO_FOLLOW = "vid_comment_no_follow"
+    const val KEY_COMMENT_NO_SEARCH = "vid_comment_no_search"
+    const val KEY_COMMENT_NO_EMPTY_PAGE = "vid_comment_no_empty_page"
+    const val KEY_COMMENT_NO_QOE = "vid_comment_no_qoe"
+    const val KEY_COMMENT_NO_OPERATION = "vid_comment_no_operation"
+    const val KEY_MINE_ADD_SEARCH = "mine_add_search"
+    const val KEY_MINE_ADD_MESSAGES = "mine_add_im"
+    const val KEY_MINE_REMOVE_VIP = "mine_remove_vip"
+    const val KEY_MINE_KEEP_VIP_SPACE = "mine_keep_vip_space"
 
     const val KEY_TARGET_APP_VERSION = "target_app_version"
     const val CACHE_BILI_SETTINGS_ACTIVITY = "cache_settings_activity"
@@ -233,6 +245,42 @@ object ModuleSettings {
 
     fun isHideDesktopIconEnabled(prefs: SharedPreferences): Boolean =
         prefs.getBoolean(KEY_HIDE_DESKTOP_ICON, false)
+
+    fun isCommentDisableEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_COMMENT_DISABLE, false)
+
+    fun isCommentNoQuickReplyEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_COMMENT_NO_QUICK_REPLY, false)
+
+    fun isCommentNoVoteEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_COMMENT_NO_VOTE, false)
+
+    fun isCommentNoFollowEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_COMMENT_NO_FOLLOW, false)
+
+    fun isCommentNoSearchEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_COMMENT_NO_SEARCH, false)
+
+    fun isCommentNoEmptyPageEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_COMMENT_NO_EMPTY_PAGE, false)
+
+    fun isCommentNoQoeEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_COMMENT_NO_QOE, false)
+
+    fun isCommentNoOperationEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_COMMENT_NO_OPERATION, false)
+
+    fun isMineAddSearchEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_MINE_ADD_SEARCH, false)
+
+    fun isMineAddMessagesEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_MINE_ADD_MESSAGES, false)
+
+    fun isMineRemoveVipEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_MINE_REMOVE_VIP, false)
+
+    fun isMineKeepVipSpaceEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_MINE_KEEP_VIP_SPACE, false)
 }
 
 enum class SkipVideoAdMode(val value: Int, val label: String) {
