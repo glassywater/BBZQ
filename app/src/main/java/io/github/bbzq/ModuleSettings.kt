@@ -60,8 +60,7 @@ object ModuleSettings {
     const val KEY_COMMENT_NO_EMPTY_PAGE = "vid_comment_no_empty_page"
     const val KEY_COMMENT_NO_QOE = "vid_comment_no_qoe"
     const val KEY_COMMENT_NO_OPERATION = "vid_comment_no_operation"
-    const val KEY_MINE_ADD_SEARCH = "mine_add_search"
-    const val KEY_MINE_ADD_MESSAGES = "mine_add_im"
+    const val KEY_COMMENT_PICTURE_VIEW = "vid_comment_picture_view"
     const val KEY_MINE_REMOVE_VIP = "mine_remove_vip"
     const val KEY_MINE_KEEP_VIP_SPACE = "mine_keep_vip_space"
 
@@ -341,11 +340,8 @@ object ModuleSettings {
     fun isCommentNoOperationEnabled(prefs: SharedPreferences): Boolean =
         prefs.getBoolean(KEY_COMMENT_NO_OPERATION, false)
 
-    fun isMineAddSearchEnabled(prefs: SharedPreferences): Boolean =
-        prefs.getBoolean(KEY_MINE_ADD_SEARCH, false)
-
-    fun isMineAddMessagesEnabled(prefs: SharedPreferences): Boolean =
-        prefs.getBoolean(KEY_MINE_ADD_MESSAGES, false)
+    fun isCommentPictureViewEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_COMMENT_PICTURE_VIEW, false)
 
     fun isMineRemoveVipEnabled(prefs: SharedPreferences): Boolean =
         prefs.getBoolean(KEY_MINE_REMOVE_VIP, false)
