@@ -456,6 +456,12 @@ class SettingsContentFactory(
                 ModuleSettings.KEY_MINE_KEEP_VIP_SPACE,
                 false,
             ),
+            createSwitchRow(
+                context.getString(R.string.full_number_format_title),
+                context.getString(R.string.full_number_format_summary),
+                ModuleSettings.KEY_FULL_NUMBER_FORMAT_ENABLED,
+                false,
+            ),
         )
     }
 

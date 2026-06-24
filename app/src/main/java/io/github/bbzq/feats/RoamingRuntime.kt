@@ -26,6 +26,7 @@ import io.github.bbzq.feats.hook.StoryPlayerAdHook
 import io.github.bbzq.feats.hook.VideoCommentHook
 import io.github.bbzq.feats.hook.CommentPictureHook
 import io.github.bbzq.feats.hook.VideoDetailBannerAdHook
+import io.github.bbzq.feats.hook.FullNumberFormatHook
 import io.github.bbzq.feats.hook.MineProfileHook
 import io.github.bbzq.feats.symbol.BiliHookSymbols
 import io.github.bbzq.feats.symbol.BiliSymbolResolver
@@ -107,6 +108,7 @@ object RoamingRuntime {
                 ::TeenagersModeHook,
                 ::VideoCommentHook,
                 ::CommentPictureHook,
+                ::FullNumberFormatHook,
                 ::MineProfileHook,
             )
             ProcessScope.UNSUPPORTED -> emptyList()
