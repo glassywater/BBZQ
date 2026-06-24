@@ -5,6 +5,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.util.Log
 import io.github.libxposed.api.XposedInterface
 import java.lang.ref.WeakReference
 import java.lang.reflect.Method
@@ -19,6 +20,7 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
 
     private fun ensureLoaded() {
         val now = System.currentTimeMillis()
+        var snapshotToPersist: Map<String, Any>? = null
         synchronized(cacheLock) {
             if (localCache.isNotEmpty() && now - lastLoadTime < CACHE_EXPIRATION) return
             val source = getAllFromSources()
@@ -28,31 +30,54 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
             if (loaded.isNotEmpty()) localCache = loaded
             hasAuthoritativeSnapshot = source.authoritative
             lastLoadTime = now
+            lastProviderStatus = source.status
+            if (source.authoritative && loaded.isNotEmpty() && source.persistSnapshot) {
+                snapshotToPersist = loaded
+            }
         }
+        snapshotToPersist?.let(::persistHostSnapshot)
     }
 
     private fun getAllFromSources(): SettingsSource {
         val remote = getAllFromRemotePreferences()
         val provider = getAllFromProvider()
         if (remote.isNotEmpty() && provider.isNotEmpty()) {
-            return SettingsSource(remote + provider, authoritative = true)
+            return SettingsSource(remote + provider, authoritative = true, status = "remote+provider ok")
         }
-        if (remote.isNotEmpty()) return SettingsSource(remote, authoritative = true)
-        if (provider.isNotEmpty()) return SettingsSource(provider, authoritative = true)
-        return SettingsSource(fallbackDefaults(), authoritative = false)
+        if (remote.isNotEmpty()) return SettingsSource(remote, authoritative = true, status = "remote ok")
+        if (provider.isNotEmpty()) return SettingsSource(provider, authoritative = true, status = "provider ok")
+
+        val failedStatus = lastProviderStatus
+        val snapshot = getAllFromHostSnapshot()
+        if (snapshot.isNotEmpty()) {
+            return SettingsSource(
+                snapshot,
+                authoritative = true,
+                status = "snapshot ok; live settings unavailable ($failedStatus)",
+                persistSnapshot = false,
+            )
+        }
+
+        return SettingsSource(
+            fallbackDefaults(),
+            authoritative = false,
+            status = "defaults only; live settings unavailable ($failedStatus)",
+            persistSnapshot = false,
+        )
     }
 
-    private fun getAllFromRemotePreferences(): Map<String, Any?> =
-        runCatching {
-            resolveRemotePreferences()?.all.orEmpty()
-        }.mapCatching { prefs ->
-            prefs.mapValues { it.value }.also {
-                lastProviderStatus = if (it.isEmpty()) "remote empty" else "remote ok"
-            }
+    private fun getAllFromRemotePreferences(): Map<String, Any?> {
+        val remotePrefs = resolveRemotePreferences() ?: run {
+            lastProviderStatus = "remote unavailable"
+            return emptyMap()
+        }
+        return runCatching {
+            remotePrefs.all.mapValues { it.value }
         }.getOrElse {
             lastProviderStatus = "remote ${it.javaClass.simpleName}: ${it.message}"
             emptyMap()
         }
+    }
 
     private fun getAllFromProvider(): Map<String, Any?> {
         if (isProviderRetryBlocked()) return emptyMap()
@@ -60,6 +85,14 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
         val values = result?.keySet()?.associateWith { key -> result.get(key) }.orEmpty()
         return values
     }
+
+    private fun getAllFromHostSnapshot(): Map<String, Any?> =
+        runCatching {
+            resolveHostSnapshotPreferences()?.all.orEmpty().mapValues { it.value }
+        }.getOrElse {
+            lastProviderStatus = "snapshot ${it.javaClass.simpleName}: ${it.message}"
+            emptyMap()
+        }
 
     private fun fallbackDefaults(): Map<String, Any?> = mapOf(
         ModuleSettings.KEY_SKIP_SPLASH_AD_ENABLED to true,
@@ -83,6 +116,7 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
                 Bundle().apply { putString(ModuleSettingsProvider.EXTRA_DEFAULT, defValue) },
             )
             result?.getString(ModuleSettingsProvider.EXTRA_VALUE, defValue)
+                ?.also { cacheRuntimeValue(key, it) }
         }
     }
 
@@ -105,7 +139,9 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
                 putStringArrayList(ModuleSettingsProvider.EXTRA_DEFAULT, ArrayList(defValues.orEmpty()))
             },
         )
-        return result?.getStringArrayList(ModuleSettingsProvider.EXTRA_VALUE)?.toMutableSet()
+        return result?.getStringArrayList(ModuleSettingsProvider.EXTRA_VALUE)
+            ?.toMutableSet()
+            ?.also { cacheRuntimeValue(key, it.toSet()) }
             ?: defValues
     }
 
@@ -119,7 +155,9 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
                 key,
                 Bundle().apply { putInt(ModuleSettingsProvider.EXTRA_DEFAULT, defValue) },
             )
-            result?.getInt(ModuleSettingsProvider.EXTRA_VALUE, defValue) ?: defValue
+            result?.getInt(ModuleSettingsProvider.EXTRA_VALUE, defValue)
+                ?.also { cacheRuntimeValue(key, it) }
+                ?: defValue
         }
     }
 
@@ -151,7 +189,9 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
                 key,
                 Bundle().apply { putBoolean(ModuleSettingsProvider.EXTRA_DEFAULT, defValue) },
             )
-            result?.getBoolean(ModuleSettingsProvider.EXTRA_VALUE, defValue) ?: defValue
+            result?.getBoolean(ModuleSettingsProvider.EXTRA_VALUE, defValue)
+                ?.also { cacheRuntimeValue(key, it) }
+                ?: defValue
         }
     }
 
@@ -174,34 +214,45 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
         listener: SharedPreferences.OnSharedPreferenceChangeListener?,
     ) = Unit
 
-    private fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
+    private fun call(
+        method: String,
+        arg: String?,
+        extras: Bundle?,
+        recordStatus: Boolean = true,
+    ): Bundle? {
         val resolver = resolveContentResolver() ?: return null
         return try {
             resolver.call(ModuleSettingsProvider.CONTENT_URI, method, arg, extras).also {
                 providerUnavailable = false
                 providerFailureTime = 0L
-                lastProviderStatus = if (it == null) "$method returned null" else "$method ok"
+                if (recordStatus) {
+                    lastProviderStatus = if (it == null) "$method returned null" else "$method ok"
+                }
             }
         } catch (e: IllegalArgumentException) {
             providerUnavailable = true
             providerFailureTime = System.currentTimeMillis()
-            lastProviderStatus = "$method IllegalArgumentException: ${e.message}"
+            if (recordStatus) lastProviderStatus = "$method IllegalArgumentException: ${e.message}"
             null
         } catch (e: SecurityException) {
             providerUnavailable = true
             providerFailureTime = System.currentTimeMillis()
-            lastProviderStatus = "$method SecurityException: ${e.message}"
+            if (recordStatus) lastProviderStatus = "$method SecurityException: ${e.message}"
             null
         }
     }
 
     private fun resolveContentResolver(): ContentResolver? {
-        cachedContext.get()?.let { return it.moduleAwareContentResolver() }
+        return resolveContext()?.moduleAwareContentResolver()
+    }
+
+    private fun resolveContext(): Context? {
+        cachedContext.get()?.let { return it }
         val application = runCatching {
             currentApplicationMethod.invoke(null) as? Application
         }.getOrNull() ?: return null
         cachedContext = WeakReference(application)
-        return application.moduleAwareContentResolver()
+        return application
     }
 
     private fun Context.moduleAwareContentResolver(): ContentResolver =
@@ -219,6 +270,35 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
         }
     }
 
+    private fun resolveHostSnapshotPreferences(): SharedPreferences? =
+        resolveContext()?.getSharedPreferences(HOST_SNAPSHOT_PREFS_NAME, Context.MODE_PRIVATE)
+
+    private fun persistHostSnapshot(values: Map<String, Any>) {
+        val prefs = resolveHostSnapshotPreferences() ?: return
+        runCatching {
+            prefs.edit()
+                .clear()
+                .applyValues(values)
+                .apply()
+        }.onFailure {
+            lastProviderStatus = "snapshot write ${it.javaClass.simpleName}: ${it.message}"
+            Log.w(LOG_TAG, "runtime settings snapshot write failed", it)
+        }
+    }
+
+    private fun cacheRuntimeValue(key: String?, value: Any) {
+        if (key == null) return
+        var snapshotToPersist: Map<String, Any>? = null
+        synchronized(cacheLock) {
+            val updated = localCache.toMutableMap()
+            updated[key] = value
+            localCache = updated
+            lastLoadTime = System.currentTimeMillis()
+            snapshotToPersist = updated
+        }
+        snapshotToPersist?.let(::persistHostSnapshot)
+    }
+
     private inner class Editor : SharedPreferences.Editor {
         private val operations = mutableListOf<() -> Unit>()
         private val cacheUpdates = mutableListOf<(MutableMap<String, Any>) -> Unit>()
@@ -230,6 +310,7 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
                     ModuleSettingsProvider.METHOD_PUT_STRING,
                     key,
                     Bundle().apply { putString(ModuleSettingsProvider.EXTRA_VALUE, value) },
+                    recordStatus = false,
                 )
             }
             cacheUpdates += { cache ->
@@ -249,6 +330,7 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
                     Bundle().apply {
                         putStringArrayList(ModuleSettingsProvider.EXTRA_VALUE, ArrayList(values.orEmpty()))
                     },
+                    recordStatus = false,
                 )
             }
             cacheUpdates += { cache ->
@@ -263,6 +345,7 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
                     ModuleSettingsProvider.METHOD_PUT_INT,
                     key,
                     Bundle().apply { putInt(ModuleSettingsProvider.EXTRA_VALUE, value) },
+                    recordStatus = false,
                 )
             }
             cacheUpdates += { cache -> if (key != null) cache[key] = value }
@@ -274,6 +357,7 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
                     ModuleSettingsProvider.METHOD_PUT_STRING,
                     key,
                     Bundle().apply { putString(ModuleSettingsProvider.EXTRA_VALUE, value.toString()) },
+                    recordStatus = false,
                 )
             }
             cacheUpdates += { cache -> if (key != null) cache[key] = value.toString() }
@@ -285,6 +369,7 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
                     ModuleSettingsProvider.METHOD_PUT_STRING,
                     key,
                     Bundle().apply { putString(ModuleSettingsProvider.EXTRA_VALUE, value.toString()) },
+                    recordStatus = false,
                 )
             }
             cacheUpdates += { cache -> if (key != null) cache[key] = value.toString() }
@@ -296,13 +381,14 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
                     ModuleSettingsProvider.METHOD_PUT_BOOLEAN,
                     key,
                     Bundle().apply { putBoolean(ModuleSettingsProvider.EXTRA_VALUE, value) },
+                    recordStatus = false,
                 )
             }
             cacheUpdates += { cache -> if (key != null) cache[key] = value }
         }
 
         override fun remove(key: String?): SharedPreferences.Editor = apply {
-            operations += { call(ModuleSettingsProvider.METHOD_REMOVE, key, null) }
+            operations += { call(ModuleSettingsProvider.METHOD_REMOVE, key, null, recordStatus = false) }
             cacheUpdates += { cache -> if (key != null) cache.remove(key) }
         }
 
@@ -316,19 +402,23 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
         }
 
         override fun apply() {
+            ensureLoaded()
             if (clearRequested) {
-                getAllFromSources().values.keys.forEach { key ->
-                    call(ModuleSettingsProvider.METHOD_REMOVE, key, null)
+                synchronized(cacheLock) { localCache.keys.toList() }.forEach { key ->
+                    call(ModuleSettingsProvider.METHOD_REMOVE, key, null, recordStatus = false)
                 }
             }
             operations.forEach { it() }
 
+            var snapshotToPersist: Map<String, Any>? = null
             synchronized(cacheLock) {
                 val updated = if (clearRequested) mutableMapOf() else localCache.toMutableMap()
                 cacheUpdates.forEach { it(updated) }
                 localCache = updated
                 lastLoadTime = System.currentTimeMillis()
+                if (hasAuthoritativeSnapshot) snapshotToPersist = updated
             }
+            snapshotToPersist?.let(::persistHostSnapshot)
 
             operations.clear()
             cacheUpdates.clear()
@@ -339,6 +429,8 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
     companion object {
         private const val CACHE_EXPIRATION = 5000L
         private const val MODULE_PACKAGE = "io.github.bbzq"
+        private const val HOST_SNAPSHOT_PREFS_NAME = "bbzq_runtime_settings_snapshot"
+        private const val LOG_TAG = "BBZQ"
         private var cachedContext = WeakReference<Context>(null)
         private var cachedXposed: XposedInterface? = null
         private var cachedRemotePrefs = WeakReference<SharedPreferences>(null)
@@ -388,5 +480,22 @@ class ModuleSettingsBridge private constructor() : SharedPreferences {
     private data class SettingsSource(
         val values: Map<String, Any?>,
         val authoritative: Boolean,
+        val status: String,
+        val persistSnapshot: Boolean = true,
     )
+}
+
+private fun SharedPreferences.Editor.applyValues(values: Map<String, Any>): SharedPreferences.Editor = apply {
+    values.forEach { (key, value) ->
+        when (value) {
+            is Boolean -> putBoolean(key, value)
+            is Int -> putInt(key, value)
+            is Long -> putLong(key, value)
+            is Float -> putFloat(key, value)
+            is String -> putString(key, value)
+            is Set<*> -> putStringSet(key, value.map { it.toString() }.toSet())
+            is List<*> -> putStringSet(key, value.map { it.toString() }.toSet())
+            else -> putString(key, value.toString())
+        }
+    }
 }
