@@ -5,7 +5,6 @@
     <string name="xposed_description">基于 libxposed API 102 的 BBZQ 模块，提供空降助手、功能增强与组件净化等功能。</string>
 
     <!-- 介紹頁 -->
-    <string name="intro_title">BBZQ</string>
     <string name="intro_module_title">模块信息</string>
     <string name="intro_module_body">当前版本：BBZQ %1$s</string>
     <string name="intro_desc_title">模块介绍</string>
@@ -14,6 +13,7 @@
     <string name="intro_entry_body">进入哔哩哔哩“设置”页面，找到“高级设置”即可进入 BBZQ 设置面板。</string>
     <string name="intro_launcher_title">桌面入口说明</string>
     <string name="intro_launcher_body">桌面图标仅用于展示模块介绍，实际功能开关仍在应用内设置页中调整。</string>
+    <string name="section_about">关于</string>
 
     <!-- 設定入口 -->
     <string name="entry_title">高级设置</string>
@@ -103,17 +103,25 @@
     <string name="credits_summary">空降助手参考了 hanydd/BilibiliSponsorBlock 项目的实现。点击查看项目主页。</string>
     <string name="api_docs_title">API 文档</string>
     <string name="api_docs_summary">查看 SponsorBlock 官方 API 说明。</string>
+    
+    <!-- 空降助手辅助说明 -->
+    <string name="story_filter_selected_tags_title">已选标签</string>
+    <string name="story_filter_selected_tags_summary">勾选后会一起参与过滤。</string>
+    <string name="story_filter_blocked_count_title">拦截统计</string>
+    <string name="story_filter_blocked_count_summary">累计拦截 %1$d 条内容</string>
 
-    <!-- 介面分區 -->
+    <!-- 功能区域分组 -->
     <string name="section_share_link">分享与链接</string>
     <string name="section_copy_enhance">复制增强</string>
     <string name="section_startup_purify">启动净化</string>
     <string name="section_download_features">下载功能</string>
-    <string name="section_home_recommend_purify">首页推荐净化</string>
-    <string name="section_ui_customize">界面定制</string>
-    <string name="section_playback_purify">播放净化</string>
-    <string name="section_story_purify">竖屏视频净化</string>
-    <string name="section_about">关于</string>
+    <string name="section_home_recommend_purify">主页推荐</string>
+    <string name="section_ui_customize">主页外观</string>
+    <string name="section_dynamic_page">动态页</string>
+    <string name="section_playback_purify">播放页</string>
+    <string name="section_comment_purify">评论区</string>
+    <string name="section_mine_customize">我的页</string>
+    <string name="section_story_purify">竖屏视频</string>
 
     <!-- 分享與複製 -->
     <string name="share_purify_title">净化分享</string>
@@ -125,13 +133,15 @@
     <string name="copy_enhance_title">长按自由复制</string>
     <string name="copy_enhance_summary">需先开启“去除长按复制”，拦截复制动作并弹出文本选择窗口。</string>
 
-    <!-- 啟動與首頁 -->
+    <!-- 启动 -->
     <string name="startup_skip_splash_title">跳过开屏广告</string>
     <string name="startup_skip_splash_summary">拦截开屏广告请求，缩短启动等待时间。</string>
     <string name="startup_block_teenagers_title">关闭青少年模式弹窗</string>
     <string name="startup_block_teenagers_summary">检测并自动关闭青少年模式提醒弹窗。</string>
     <string name="block_update_title">禁止 App 检查更新</string>
     <string name="block_update_summary">拦截应用内更新检查，避免弹出版本更新提示。</string>
+
+    <!-- 主页 -->
     <string name="home_recommend_title_keyword_title">标题关键词屏蔽</string>
     <string name="home_recommend_title_keyword_empty_summary">未配置关键词。开启首页卡片过滤后，标题包含关键词的推荐会被过滤。</string>
     <string name="home_recommend_title_keyword_enabled_summary">已配置 %1$d 个关键词：%2$s</string>
@@ -185,7 +195,7 @@
     <string name="home_search_default_word_title">移除首页推荐搜索词</string>
     <string name="home_search_default_word_summary">清空首页搜索框内的推荐搜索词。</string>
 
-    <!-- 播放 -->
+    <!-- 播放页 -->
     <string name="playback_hide_banner_title">屏蔽视频页广告</string>
     <string name="playback_hide_banner_summary">阻止视频详情页播放器下方横幅、推荐列表、应用下载、好物推荐广告创建。</string>
     <string name="playback_block_chronos_promotion_title">屏蔽播放互动组件</string>
@@ -194,12 +204,6 @@
     <string name="playback_skip_reward_summary">自动尝试完成视频激励并获得奖励。</string>
     <string name="playback_auto_like_title">自动点赞视频</string>
     <string name="playback_auto_like_summary">进入详情页时自动对未点赞的视频执行点赞。</string>
-
-    <!-- 間接顯示的空降助手說明 -->
-    <string name="story_filter_selected_tags_title">已选标签</string>
-    <string name="story_filter_selected_tags_summary">勾选后会一起参与过滤。</string>
-    <string name="story_filter_blocked_count_title">拦截统计</string>
-    <string name="story_filter_blocked_count_summary">累计拦截 %1$d 条内容</string>
 
     <!-- 關於頁 -->
     <string name="about_version_title">版本</string>
@@ -227,7 +231,7 @@
     <string name="symbol_cache_refresh_confirm">清除并重扫</string>
     <string name="symbol_cache_refresh_running_toast">正在重新混淆扫描</string>
 
-    <!-- 對話框 / Toast -->
+    <!-- 對話框 / 吐司 -->
     <string name="version_hidden_entry_toast">已显示隐藏入口</string>
     <string name="settings_done">完成</string>
     <string name="config_export_success">已导出 %1$d 个功能开关和 %2$d 个手动配置。</string>
@@ -252,7 +256,7 @@
     <string name="free_copy_title">自由复制</string>
     <string name="free_copy_original_button">复制选择内容</string>
 
-    <string name="section_comment_purify">视频评论区</string>
+    <!-- 评论区 -->
     <string name="comment_disable_title">完全隐藏评论区</string>
     <string name="comment_disable_summary">从视频详情页移除评论区标签。</string>
     <string name="comment_no_quick_reply_title">阻止点击快速回复</string>
@@ -269,7 +273,8 @@
     <string name="comment_no_qoe_summary">屏蔽评论区体验反馈和问卷弹窗。</string>
     <string name="comment_no_operation_title">移除评论区运营推广</string>
     <string name="comment_no_operation_summary">隐藏评论区顶部的运营活动和推广横幅。</string>
-    <string name="section_mine_customize">我的页面定制</string>
+
+    <!-- 我的页 -->
     <string name="mine_remove_vip_title">隐藏大会员入口</string>
     <string name="mine_remove_vip_summary">移除“我的”页面中的大会员卡片展示。</string>
     <string name="mine_keep_vip_space_title">保留大会员占位空间</string>

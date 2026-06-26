@@ -76,7 +76,7 @@ class IntroActivity : Activity() {
 
     private fun createTitle(): TextView {
         return TextView(this).apply {
-            text = getString(R.string.intro_title)
+            text = getString(R.string.app_name)
             textSize = 28f
             setTextColor(Color.parseColor("#111111"))
             setPadding(0, 0, 0, dp(16))
