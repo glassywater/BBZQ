@@ -10,10 +10,13 @@ import io.github.bbzq.feats.RoamingEnv
 import io.github.bbzq.feats.hookAfter
 import io.github.bbzq.feats.hookBefore
 import io.github.bbzq.feats.symbol.RestoredRewardAdSymbols
+import org.json.JSONObject
 import java.lang.reflect.Field
 import java.util.Locale
 
 class RewardAdHook(env: RoamingEnv) : BaseRoamingHook(env) {
+    private var miniGameSkipCount = 0
+
     override fun startHook() {
         if (!ModuleSettings.isSkipRewardAdEnabled(prefs)) return
         val symbols = env.symbols?.rewardAd?.restore(classLoader) ?: run {
@@ -25,6 +28,7 @@ class RewardAdHook(env: RoamingEnv) : BaseRoamingHook(env) {
         count += hookRewardActivity(symbols)
         count += hookRewardHeaderTimer(symbols)
         count += hookCountDownTextView(symbols)
+        count += hookMiniGameReward(symbols)
         count += hookActivitySweeper()
         log("startHook: RewardAd, methods=$count")
     }
@@ -100,6 +104,55 @@ class RewardAdHook(env: RoamingEnv) : BaseRoamingHook(env) {
             count++
         }
         return count
+    }
+
+    private fun hookMiniGameReward(symbols: RestoredRewardAdSymbols): Int {
+        val showMethod = symbols.miniGameRewardShow ?: return 0
+        val emitEventMethod = symbols.miniGameRewardEmitEvent ?: return 0
+        val callbackMethod = symbols.miniGameRewardCallback ?: return 0
+        env.hookBefore(showMethod) { param ->
+            val methodName = param.args.getOrNull(1) as? String ?: return@hookBefore
+            if (methodName != METHOD_SHOW_REWARDED_VIDEO_AD) return@hookBefore
+            val adId = rewardedVideoAdId(param.args.getOrNull(2)) ?: return@hookBefore
+            val invoker = param.args.getOrNull(4) ?: return@hookBefore
+            val callbackSig = param.args.getOrNull(3) as? String
+            runCatching {
+                callbackMethod.invoke(invoker, callbackSig, rewardedVideoAdShown())
+                emitEventMethod.invoke(
+                    param.thisObject,
+                    EVENT_REWARDED_VIDEO_AD_ON_CLOSE,
+                    adId,
+                    JSONObject().put(KEY_IS_ENDED, true),
+                )
+            }.onSuccess {
+                param.result = null
+                logMiniGameSkipped(adId)
+            }.onFailure {
+                log("RewardAd mini game skip failed", it)
+            }
+        }
+        return 1
+    }
+
+    private fun rewardedVideoAdId(rawJson: Any?): String? {
+        val raw = rawJson as? String ?: return null
+        if (raw.isBlank()) return null
+        return runCatching {
+            JSONObject(raw).optString("id").takeIf { it.isNotBlank() }
+        }.getOrNull()
+    }
+
+    private fun rewardedVideoAdShown(): JSONObject =
+        JSONObject()
+            .put("code", 0)
+            .put("msg", "")
+            .put("data", JSONObject())
+
+    private fun logMiniGameSkipped(adId: String) {
+        val count = ++miniGameSkipCount
+        if (count <= 20 || count % 20 == 0) {
+            log("RewardAd mini game rewarded video skipped count=$count id=$adId")
+        }
     }
 
     private fun hookActivitySweeper(): Int {
@@ -198,6 +251,9 @@ class RewardAdHook(env: RoamingEnv) : BaseRoamingHook(env) {
         private const val REWARD_FAST_FORWARD_MS = 60_000L
         private const val JUMP_FAST_FORWARD_MS = 60_000L
         private const val MAX_VIEW_SCAN_NODES = 320
+        private const val METHOD_SHOW_REWARDED_VIDEO_AD = "showRewardedVideoAd"
+        private const val EVENT_REWARDED_VIDEO_AD_ON_CLOSE = "RewardedVideoAdOnClose"
+        private const val KEY_IS_ENDED = "isEnded"
         private val SWEEP_DELAYS_MS = longArrayOf(0L, 250L, 800L, 1_500L)
     }
 }

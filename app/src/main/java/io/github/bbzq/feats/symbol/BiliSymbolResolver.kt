@@ -24,6 +24,7 @@ import org.luckypray.dexkit.query.FindMethod
 import org.luckypray.dexkit.query.enums.StringMatchType
 import org.luckypray.dexkit.query.matchers.ClassMatcher
 import org.luckypray.dexkit.query.matchers.MethodMatcher
+import org.json.JSONObject
 import java.io.File
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -53,6 +54,7 @@ object BiliSymbolResolver {
     private const val HP_REWARD_AD_COUNTDOWN = "RewardAdHook.CountDownText"
     private const val HP_REWARD_AD_JUMP_CLOCK = "RewardAdHook.JumpClock"
     private const val HP_REWARD_AD_ACTIVITY_SWEEPER = "RewardAdHook.ActivitySweeper"
+    private const val HP_REWARD_AD_MINI_GAME = "RewardAdHook.MiniGameRewardedVideoAd"
     private const val HP_TRY_FREE_QUALITY = "TryFreeQualityHook.GeneratedMessages"
     private const val HP_TEENAGERS_MODE = "TeenagersModeHook.DialogActivity"
     private const val HP_DOWNLOAD_THREAD_LISTENER = "DownloadThreadHook.Listener"
@@ -546,6 +548,37 @@ object BiliSymbolResolver {
         val countDownSetElapsedTime = countDownClass?.findMethod("setElapsedTime", Void.TYPE, Long::class.javaPrimitiveType!!)
         val countDownCount = listOfNotNull(countDownSetTotalTime, countDownSetElapsedTime).size
 
+        val miniGameRewardClass = classLoader.loadClassOrNull(REWARD_MINI_GAME_ABILITY)
+        val miniGameRewardShow = miniGameRewardClass?.declaredMethods?.singleOrNull { method ->
+            !Modifier.isStatic(method.modifiers) &&
+                method.parameterCount == 5 &&
+                method.parameterTypes[1] == String::class.java &&
+                method.parameterTypes[2] == String::class.java &&
+                method.parameterTypes[3] == String::class.java &&
+                method.returnType != Void.TYPE
+        }?.apply { isAccessible = true }
+        val miniGameRewardEmitEvent = miniGameRewardClass?.declaredMethods?.singleOrNull { method ->
+            !Modifier.isStatic(method.modifiers) &&
+                method.returnType == Void.TYPE &&
+                method.parameterTypes.contentEquals(
+                    arrayOf(String::class.java, String::class.java, JSONObject::class.java),
+                )
+        }?.apply { isAccessible = true }
+        val miniGameRewardCallback = miniGameRewardShow?.parameterTypes?.getOrNull(4)
+            ?.declaredMethods
+            ?.singleOrNull { method ->
+                method.returnType == Void.TYPE &&
+                    method.parameterTypes.contentEquals(arrayOf(String::class.java, JSONObject::class.java))
+            }
+            ?.apply { isAccessible = true }
+        val miniGameRewardReady =
+            miniGameRewardShow != null && miniGameRewardEmitEvent != null && miniGameRewardCallback != null
+        val miniGameRewardCount = listOfNotNull(
+            miniGameRewardShow,
+            miniGameRewardEmitEvent,
+            miniGameRewardCallback,
+        ).size
+
         val jumpClockField = REWARD_JUMP_CLOCK_CLASSES.firstNotNullOfOrNull { className ->
             classLoader.loadClassOrNull(className)
                 ?.declaredFields
@@ -561,8 +594,14 @@ object BiliSymbolResolver {
             childHookPoint(HP_REWARD_AD_COUNTDOWN, countDownCount > 0, "countdown text hooks not found", "methods=$countDownCount"),
             optionalChildHookPoint(HP_REWARD_AD_JUMP_CLOCK, jumpClockField != null, "jump clock field not found", "field=${jumpClockField?.name}"),
             HookPointStatus.found(HP_REWARD_AD_ACTIVITY_SWEEPER, "android.app.Activity.onResume", "sdk=true"),
+            optionalChildHookPoint(
+                HP_REWARD_AD_MINI_GAME,
+                miniGameRewardReady,
+                "mini game rewarded video hooks not found",
+                "methods=$miniGameRewardCount",
+            ),
         )
-        val total = activityCount + headerCount + countDownCount + 1
+        val total = activityCount + headerCount + countDownCount + (if (miniGameRewardReady) 1 else 0) + 1
         if (total == 1) return SymbolScanResult.Missing("reward ad target hook points not found")
         val symbols = RewardAdSymbols(
             activityOnCreate = activityOnCreate?.let(MethodDescriptor::of),
@@ -574,7 +613,19 @@ object BiliSymbolResolver {
             countDownSetTotalTime = countDownSetTotalTime?.let(MethodDescriptor::of),
             countDownSetElapsedTime = countDownSetElapsedTime?.let(MethodDescriptor::of),
             jumpClockField = jumpClockField?.let(FieldDescriptor::of),
-            evidence = "activity=$activityCount,header=$headerCount,countDown=$countDownCount,jumpClock=${jumpClockField != null}",
+            miniGameRewardShow = if (miniGameRewardReady) miniGameRewardShow?.let(MethodDescriptor::of) else null,
+            miniGameRewardEmitEvent = if (miniGameRewardReady) {
+                miniGameRewardEmitEvent?.let(MethodDescriptor::of)
+            } else {
+                null
+            },
+            miniGameRewardCallback = if (miniGameRewardReady) {
+                miniGameRewardCallback?.let(MethodDescriptor::of)
+            } else {
+                null
+            },
+            evidence = "activity=$activityCount,header=$headerCount,countDown=$countDownCount," +
+                "jumpClock=${jumpClockField != null},miniGame=$miniGameRewardReady",
         )
         return SymbolScanResult.Found(symbols, "RewardAd", symbols.evidence, hookPoints)
     }
@@ -3291,6 +3342,8 @@ object BiliSymbolResolver {
     )
     private const val REWARD_HEADER_VIEW = "com.bilibili.ad.reward.view.header.RewardAdHeaderView"
     private const val REWARD_COUNT_DOWN_TEXT_VIEW = "com.bilibili.ad.reward.view.header.CountDownTextView"
+    private const val REWARD_MINI_GAME_ABILITY =
+        "com.bilibili.lib.fasthybrid.game.engine.ability.impl.ad.BWARewardAbility"
     private val REWARD_JUMP_CLOCK_CLASSES = arrayOf("Ke.m", "Pe.k")
 
     private val TRY_FREE_NEED_TRIAL_CLASSES = arrayOf(

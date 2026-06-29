@@ -87,7 +87,7 @@ data class BiliHookSymbols(
         .putOpt("fullNumberFormat", fullNumberFormat?.toJson())
 
     companion object {
-        const val CACHE_SCHEMA_VERSION = 21
+        const val CACHE_SCHEMA_VERSION = 22
 
         fun fromJson(raw: String?): BiliHookSymbols? {
             if (raw.isNullOrBlank()) return null
@@ -331,6 +331,9 @@ data class RewardAdSymbols(
     val countDownSetTotalTime: MethodDescriptor? = null,
     val countDownSetElapsedTime: MethodDescriptor? = null,
     val jumpClockField: FieldDescriptor? = null,
+    val miniGameRewardShow: MethodDescriptor? = null,
+    val miniGameRewardEmitEvent: MethodDescriptor? = null,
+    val miniGameRewardCallback: MethodDescriptor? = null,
     val evidence: String,
 ) {
     fun toJson(): JSONObject = JSONObject()
@@ -343,6 +346,9 @@ data class RewardAdSymbols(
         .putOpt("countDownSetTotalTime", countDownSetTotalTime?.toJson())
         .putOpt("countDownSetElapsedTime", countDownSetElapsedTime?.toJson())
         .putOpt("jumpClockField", jumpClockField?.toJson())
+        .putOpt("miniGameRewardShow", miniGameRewardShow?.toJson())
+        .putOpt("miniGameRewardEmitEvent", miniGameRewardEmitEvent?.toJson())
+        .putOpt("miniGameRewardCallback", miniGameRewardCallback?.toJson())
         .put("evidence", evidence)
 
     fun restore(classLoader: ClassLoader): RestoredRewardAdSymbols =
@@ -356,6 +362,9 @@ data class RewardAdSymbols(
             countDownSetTotalTime = countDownSetTotalTime.restoreOptional(classLoader),
             countDownSetElapsedTime = countDownSetElapsedTime.restoreOptional(classLoader),
             jumpClockField = jumpClockField.restoreOptional(classLoader),
+            miniGameRewardShow = miniGameRewardShow.restoreOptional(classLoader),
+            miniGameRewardEmitEvent = miniGameRewardEmitEvent.restoreOptional(classLoader),
+            miniGameRewardCallback = miniGameRewardCallback.restoreOptional(classLoader),
         )
 
     companion object {
@@ -369,6 +378,9 @@ data class RewardAdSymbols(
             countDownSetTotalTime = obj.optJSONObject("countDownSetTotalTime")?.let(MethodDescriptor::fromJson),
             countDownSetElapsedTime = obj.optJSONObject("countDownSetElapsedTime")?.let(MethodDescriptor::fromJson),
             jumpClockField = obj.optJSONObject("jumpClockField")?.let(FieldDescriptor::fromJson),
+            miniGameRewardShow = obj.optJSONObject("miniGameRewardShow")?.let(MethodDescriptor::fromJson),
+            miniGameRewardEmitEvent = obj.optJSONObject("miniGameRewardEmitEvent")?.let(MethodDescriptor::fromJson),
+            miniGameRewardCallback = obj.optJSONObject("miniGameRewardCallback")?.let(MethodDescriptor::fromJson),
             evidence = obj.optString("evidence", "-"),
         )
     }
@@ -384,6 +396,9 @@ data class RestoredRewardAdSymbols(
     val countDownSetTotalTime: Method?,
     val countDownSetElapsedTime: Method?,
     val jumpClockField: Field?,
+    val miniGameRewardShow: Method?,
+    val miniGameRewardEmitEvent: Method?,
+    val miniGameRewardCallback: Method?,
 )
 
 data class TryFreeQualitySymbols(
