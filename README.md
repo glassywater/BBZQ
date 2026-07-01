@@ -1,7 +1,7 @@
 # BBZQ
 > 使用 `libxposed API 102`、由 Kotlin 全量编写的哔哩哔哩增强 Xposed 模组
 
-![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&logoColor=white)
 ![API](https://img.shields.io/badge/libxposed-API%20102-orange)
 ![License](https://img.shields.io/badge/license-Mulan%20PubL%20v2-blue)
 
@@ -151,12 +151,12 @@ BBZQ 是一款适配 libxposed API 102 的哔哩哔哩功能增强模组，采�
 
 **环境要求**
 
-| 项目 | 版本 |
-|------|------|
-| JDK | 21 |
-| Android Gradle Plugin | 9.2.1 |
-| Kotlin | 2.4.0 |
-| Gradle Wrapper | 9.4.1 |
+| 项目 | 版本     |
+|------|--------|
+| JDK | 21     |
+| Android Gradle Plugin | 9.2.1  |
+| Kotlin | 2.4.10 |
+| Gradle Wrapper | 9.4.1  |
 
 **Debug 构建**
 

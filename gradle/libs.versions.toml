@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.4.0"
+kotlin = "2.4.10-RC"
 agp = "9.2.1"
 libxposedApi = "102.0.0"
 libxposedService = "102.0.0"
