@@ -1727,9 +1727,7 @@ class SettingsContentFactory(
         private const val UNKNOWN_RUNTIME_VALUE = "unknown"
         private val SUPPORTED_HOST_PACKAGES = listOf(
             "tv.danmaku.bili",
-            "com.bilibili.app.in",
-            "tv.danmaku.bilibilihd",
-            "com.bilibili.app.blue",
+            "top.nkbe.npatch",
         )
     }
 }

@@ -19,9 +19,7 @@ object RuntimeEnvironmentInfo {
 
     private val targetPackages = listOf(
         "tv.danmaku.bili",
-        "com.bilibili.app.in",
-        "tv.danmaku.bilibilihd",
-        "com.bilibili.app.blue",
+        "top.nkbe.npatch",
     )
 
     fun versionSummary(context: Context, prefs: SharedPreferences): String {

@@ -132,9 +132,7 @@ class BbzqModule : XposedModule() {
 
         private val TARGET_PACKAGES = setOf(
             "tv.danmaku.bili",
-            "com.bilibili.app.in",
-            "tv.danmaku.bilibilihd",
-            "com.bilibili.app.blue",
+            "top.nkbe.npatch",
         )
 
         private val currentApplicationMethod: java.lang.reflect.Method by lazy(LazyThreadSafetyMode.NONE) {
