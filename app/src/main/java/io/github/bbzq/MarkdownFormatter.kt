@@ -72,10 +72,8 @@ object MarkdownFormatter {
 
         // 1. 行内代码：内容原样转义，不再参与链接/加粗解析。
         var working = CODE_REGEX.replace(sanitized) { match -> stash("<tt>${escapeHtml(match.groupValues[1])}</tt>") }
-        // 2. 链接：在整体转义前抽取，label 继续解析加粗、URL 与 label 各只转义一次；非 http(s) 链接降级为纯文本。
-        working = LINK_REGEX.replace(working) { match ->
-            val label = match.groupValues[1]
-            val url = match.groupValues[2]
+        // 2. 链接：在整体转义前抽取，支持 URL 中包含成对括号；非 http(s) 链接降级为纯文本。
+        working = replaceMarkdownLinks(working) { label, url ->
             if (isSafeUrl(url)) {
                 stash("<a href=\"${escapeHtml(url)}\">${formatLabel(label)}</a>")
             } else {
@@ -113,11 +111,57 @@ object MarkdownFormatter {
             .replace(">", "&gt;")
             .replace("\"", "&quot;")
 
+    private fun replaceMarkdownLinks(
+        text: String,
+        transform: (label: String, url: String) -> String,
+    ): String {
+        val output = StringBuilder(text.length)
+        var cursor = 0
+        while (cursor < text.length) {
+            val labelStart = text.indexOf('[', cursor)
+            if (labelStart < 0) {
+                output.append(text, cursor, text.length)
+                break
+            }
+            val labelEnd = text.indexOf(']', labelStart + 1)
+            if (labelEnd < 0 || labelEnd + 1 >= text.length || text[labelEnd + 1] != '(') {
+                output.append(text, cursor, labelStart + 1)
+                cursor = labelStart + 1
+                continue
+            }
+
+            val urlEnd = findMatchingParen(text, labelEnd + 1)
+            if (urlEnd < 0) {
+                output.append(text, cursor, labelStart + 1)
+                cursor = labelStart + 1
+                continue
+            }
+
+            output.append(text, cursor, labelStart)
+            val label = text.substring(labelStart + 1, labelEnd)
+            val url = text.substring(labelEnd + 2, urlEnd)
+            output.append(transform(label, url))
+            cursor = urlEnd + 1
+        }
+        return output.toString()
+    }
+
+    private fun findMatchingParen(text: String, openParenIndex: Int): Int {
+        var depth = 0
+        for (index in openParenIndex until text.length) {
+            when (text[index]) {
+                '(' -> depth++
+                ')' -> {
+                    depth--
+                    if (depth == 0) return index
+                }
+            }
+        }
+        return -1
+    }
+
     /** 行内代码占位符标记，使用控制字符，确保不与正文及 HTML 转义冲突。 */
     private const val PLACEHOLDER_MARK = "\u0001"
-
-    /** 链接语法 `[文本](URL)`。 */
-    private val LINK_REGEX = Regex("""\[([^\]]+)]\(([^)]+)\)""")
 
     /** 加粗语法 `**文本**`。 */
     private val BOLD_REGEX = Regex("""\*\*([^*]+)\*\*""")
