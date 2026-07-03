@@ -122,6 +122,9 @@ class SettingsContentFactory(
                 pageRoot.addView(createSectionLabel(context.getString(R.string.section_home_recommend_purify)))
                 pageRoot.addView(createSectionCard(homeRecommendRows()))
 
+                pageRoot.addView(createSectionLabel(context.getString(R.string.section_dynamic_page)))
+                pageRoot.addView(createSectionCard(dynamicRows()))
+
                 pageRoot.addView(createSectionLabel(context.getString(R.string.section_ui_customize)))
                 pageRoot.addView(createSectionCard(bottomBarRows()))
 
@@ -338,6 +341,29 @@ class SettingsContentFactory(
             rows += createHomeComponentGroup(components)
         }
         return rows
+    }
+
+    private fun dynamicRows(): List<View> {
+        return listOf(
+            createSwitchRow(
+                context.getString(R.string.dynamic_preferred_video_tab_title),
+                context.getString(R.string.dynamic_preferred_video_tab_summary),
+                ModuleSettings.KEY_DYNAMIC_PREFERRED_VIDEO_TAB_ENABLED,
+                false,
+            ),
+            createSwitchRow(
+                context.getString(R.string.dynamic_remove_city_tab_title),
+                context.getString(R.string.dynamic_remove_city_tab_summary),
+                ModuleSettings.KEY_DYNAMIC_REMOVE_CITY_TAB_ENABLED,
+                false,
+            ),
+            createSwitchRow(
+                context.getString(R.string.dynamic_remove_school_tab_title),
+                context.getString(R.string.dynamic_remove_school_tab_summary),
+                ModuleSettings.KEY_DYNAMIC_REMOVE_SCHOOL_TAB_ENABLED,
+                false,
+            ),
+        )
     }
 
     private fun bottomBarRows(): List<View> {
