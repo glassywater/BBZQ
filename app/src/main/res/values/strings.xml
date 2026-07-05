@@ -211,6 +211,12 @@
 
     <!-- 關於頁 -->
     <string name="about_version_title">版本</string>
+    <string name="about_update_title">更新</string>
+    <string name="about_update_summary">检查新版本与设置测试版更新。</string>
+    <string name="about_config_backup_title">配置备份</string>
+    <string name="about_config_backup_summary">导入、导出配置与清除缓存数据。</string>
+    <string name="about_project_repository_title">项目仓库</string>
+    <string name="about_telegram_channel_title">Telegram 频道</string>
     <string name="about_check_update_title">检查更新</string>
     <string name="about_check_update_summary">点击从 GitHub Release 检查是否有新版本。</string>
     <string name="check_update_checking_summary">正在检查更新…</string>

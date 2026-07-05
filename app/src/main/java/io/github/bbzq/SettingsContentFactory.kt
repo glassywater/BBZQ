@@ -106,6 +106,16 @@ class SettingsContentFactory(
                 pageRoot.addView(createSectionCard(hiddenFeaturesRows()))
             }
 
+            SettingsActivity.PAGE_UPDATE -> {
+                pageRoot.addView(createSectionLabel(context.getString(R.string.about_update_title)))
+                pageRoot.addView(createSectionCard(updateRows()))
+            }
+
+            SettingsActivity.PAGE_CONFIG_BACKUP -> {
+                pageRoot.addView(createSectionLabel(context.getString(R.string.about_config_backup_title)))
+                pageRoot.addView(createSectionCard(configBackupRows()))
+            }
+
             else -> {
                 pageRoot.addView(createSectionLabel(context.getString(R.string.section_share_link)))
                 pageRoot.addView(createSectionCard(shareRows()))
@@ -632,28 +642,54 @@ class SettingsContentFactory(
         ) {
             handleVersionRowClick()
         }
-        rows += createUpdateCheckRow()
-        rows += createSwitchRow(
+        rows += createClickableInfoRow(
+            context.getString(R.string.about_update_title),
+            context.getString(R.string.about_update_summary),
+        ) {
+            openPage(SettingsActivity.PAGE_UPDATE)
+        }
+        rows += createClickableInfoRow(
+            context.getString(R.string.about_config_backup_title),
+            context.getString(R.string.about_config_backup_summary),
+        ) {
+            openPage(SettingsActivity.PAGE_CONFIG_BACKUP)
+        }
+        rows += createClickableInfoRow(
+            context.getString(R.string.about_project_repository_title),
+            "HSSkyBoy/BBZQ",
+        ) {
+            openUrl(PROJECT_REPOSITORY_URL)
+        }
+        rows += createClickableInfoRow(
+            context.getString(R.string.about_telegram_channel_title),
+            "t.me/bbx_show",
+        ) {
+            openUrl(TELEGRAM_CHANNEL_URL)
+        }
+        return rows
+    }
+
+    private fun updateRows(): List<View> = listOf(
+        createUpdateCheckRow(),
+        createSwitchRow(
             context.getString(R.string.about_accept_prerelease_title),
             context.getString(R.string.about_accept_prerelease_summary),
             ModuleSettings.KEY_ACCEPT_PRERELEASE_UPDATE,
             false,
-        )
-        rows += createClickableInfoRow(
+        ),
+    )
+
+    private fun configBackupRows(): List<View> = listOf(
+        createClickableInfoRow(
             context.getString(R.string.about_export_config_title),
             context.getString(R.string.about_export_config_summary),
-        ) {
-            onExportClick()
-        }
-        rows += createClickableInfoRow(
+        ) { onExportClick() },
+        createClickableInfoRow(
             context.getString(R.string.about_import_config_title),
             context.getString(R.string.about_import_config_summary),
-        ) {
-            onImportClick()
-        }
-        rows += createSymbolCacheRefreshRow()
-        return rows
-    }
+        ) { onImportClick() },
+        createSymbolCacheRefreshRow(),
+    )
 
     private fun hiddenFeaturesEntryRows(): List<View> {
         return listOf(
@@ -1891,6 +1927,8 @@ class SettingsContentFactory(
     )
 
     private companion object {
+        private const val PROJECT_REPOSITORY_URL = "https://github.com/HSSkyBoy/BBZQ"
+        private const val TELEGRAM_CHANNEL_URL = "https://t.me/bbx_show"
         private val PAGE_BACKGROUND = Color.parseColor("#F6F7F8")
         private val TITLE_COLOR = Color.parseColor("#18191C")
         private val SUMMARY_COLOR = Color.parseColor("#9499A0")

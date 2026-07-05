@@ -95,7 +95,7 @@ class SettingsActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         val page = intent.getStringExtra(EXTRA_PAGE) ?: PAGE_ROOT
-        if (page == PAGE_HIDDEN_FEATURES) {
+        if (page != PAGE_ROOT) {
             ModuleSettingsNavigator.open(
                 context = this,
                 runtimeValues = intent.getBundleExtra(RuntimeEnvironmentInfo.EXTRA_RUNTIME_VALUES),
@@ -270,6 +270,8 @@ class SettingsActivity : Activity() {
         PAGE_SKIP_VIDEO_AD_SWITCH -> getString(R.string.about_skip_video_ad_switch_title)
         PAGE_SKIP_VIDEO_AD_CATEGORY -> getString(R.string.about_skip_video_ad_category_title)
         PAGE_HIDDEN_FEATURES -> getString(R.string.about_hidden_features_title)
+        PAGE_UPDATE -> getString(R.string.about_update_title)
+        PAGE_CONFIG_BACKUP -> getString(R.string.about_config_backup_title)
         else -> getString(R.string.settings_title)
     }
 
@@ -315,6 +317,8 @@ class SettingsActivity : Activity() {
         const val PAGE_SKIP_VIDEO_AD_SWITCH = "skip_video_ad_switch"
         const val PAGE_SKIP_VIDEO_AD_CATEGORY = "skip_video_ad_category"
         const val PAGE_HIDDEN_FEATURES = "hidden_features"
+        const val PAGE_UPDATE = "update"
+        const val PAGE_CONFIG_BACKUP = "config_backup"
         private const val REQUEST_EXPORT_CONFIG = 0x5001
         private const val REQUEST_IMPORT_CONFIG = 0x5002
     }
