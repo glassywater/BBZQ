@@ -26,7 +26,6 @@ data class BiliHookSymbols(
     val blockUpdate: BlockUpdateSymbols? = null,
     val mineProfile: MineProfileSymbols? = null,
     val downloadThread: DownloadThreadSymbols? = null,
-    val homeRecommendAutoRefresh: HomeRecommendAutoRefreshSymbols? = null,
     val homeRecommendPreload: HomeRecommendPreloadSymbols? = null,
     val storyPlayerAd: StoryPlayerAdSymbols? = null,
     val storyFullscreen: StoryFullscreenSymbols? = null,
@@ -66,7 +65,6 @@ data class BiliHookSymbols(
         .putOpt("blockUpdate", blockUpdate?.toJson())
         .putOpt("mineProfile", mineProfile?.toJson())
         .putOpt("downloadThread", downloadThread?.toJson())
-        .putOpt("homeRecommendAutoRefresh", homeRecommendAutoRefresh?.toJson())
         .putOpt("homeRecommendPreload", homeRecommendPreload?.toJson())
         .putOpt("storyPlayerAd", storyPlayerAd?.toJson())
         .putOpt("storyFullscreen", storyFullscreen?.toJson())
@@ -86,7 +84,7 @@ data class BiliHookSymbols(
         .putOpt("fullNumberFormat", fullNumberFormat?.toJson())
 
     companion object {
-        const val CACHE_SCHEMA_VERSION = 26
+        const val CACHE_SCHEMA_VERSION = 27
 
         fun fromJson(raw: String?): BiliHookSymbols? {
             if (raw.isNullOrBlank()) return null
@@ -108,8 +106,6 @@ data class BiliHookSymbols(
                     blockUpdate = obj.optJSONObject("blockUpdate")?.let(BlockUpdateSymbols::fromJson),
                     mineProfile = obj.optJSONObject("mineProfile")?.let(MineProfileSymbols::fromJson),
                     downloadThread = obj.optJSONObject("downloadThread")?.let(DownloadThreadSymbols::fromJson),
-                    homeRecommendAutoRefresh = obj.optJSONObject("homeRecommendAutoRefresh")
-                        ?.let(HomeRecommendAutoRefreshSymbols::fromJson),
                     homeRecommendPreload = obj.optJSONObject("homeRecommendPreload")
                         ?.let(HomeRecommendPreloadSymbols::fromJson),
                     storyPlayerAd = obj.optJSONObject("storyPlayerAd")?.let(StoryPlayerAdSymbols::fromJson),
@@ -783,34 +779,6 @@ data class RestoredDownloadThreadListenerSymbols(
     val constructor: Constructor<*>,
     val onClick: Method,
     val textViewField: Field,
-)
-
-data class HomeRecommendAutoRefreshSymbols(
-    val autoRefreshMethod: MethodDescriptor,
-    val evidence: String,
-) {
-    fun toJson(): JSONObject = JSONObject()
-        .put("autoRefreshMethod", autoRefreshMethod.toJson())
-        .put("evidence", evidence)
-
-    fun restore(classLoader: ClassLoader): RestoredHomeRecommendAutoRefreshSymbols? {
-        val autoRefreshOwner = classLoader.loadClassOrNull(autoRefreshMethod.declaringClassName) ?: return null
-        val autoRefresh = autoRefreshMethod.restore(autoRefreshOwner) ?: return null
-        return RestoredHomeRecommendAutoRefreshSymbols(
-            autoRefreshMethod = autoRefresh,
-        )
-    }
-
-    companion object {
-        fun fromJson(obj: JSONObject): HomeRecommendAutoRefreshSymbols = HomeRecommendAutoRefreshSymbols(
-            autoRefreshMethod = MethodDescriptor.fromJson(obj.getJSONObject("autoRefreshMethod")),
-            evidence = obj.optString("evidence", "-"),
-        )
-    }
-}
-
-data class RestoredHomeRecommendAutoRefreshSymbols(
-    val autoRefreshMethod: Method,
 )
 
 data class HomeRecommendPreloadSymbols(

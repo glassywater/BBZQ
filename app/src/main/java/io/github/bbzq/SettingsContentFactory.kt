@@ -273,12 +273,6 @@ class SettingsContentFactory(
             false,
         )
         rows += createSwitchRow(
-            context.getString(R.string.home_recommend_auto_refresh_title),
-            context.getString(R.string.home_recommend_auto_refresh_summary),
-            ModuleSettings.KEY_BLOCK_HOME_RECOMMEND_AUTO_REFRESH_ENABLED,
-            false,
-        )
-        rows += createSwitchRow(
             context.getString(R.string.home_recommend_preload_title),
             context.getString(R.string.home_recommend_preload_summary),
             ModuleSettings.KEY_HOME_RECOMMEND_PRELOAD_ENABLED,

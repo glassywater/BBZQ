@@ -62,7 +62,6 @@ object BiliSymbolResolver {
     private const val HP_TEENAGERS_MODE = "TeenagersModeHook.DialogActivity"
     private const val HP_DOWNLOAD_THREAD_LISTENER = "DownloadThreadHook.Listener"
     private const val HP_DOWNLOAD_THREAD_REPORT = "DownloadThreadHook.ReportMethod"
-    private const val HP_HOME_RECOMMEND_AUTO_REFRESH = "HomeRecommendAutoRefreshHook.AutoRefresh"
     private const val HP_HOME_RECOMMEND_PRELOAD = "HomeRecommendPreloadHook.LoadMore"
     private const val HP_STORY_PLAYER_AD = "StoryPlayerAdHook.InstallPoints"
     private const val HP_STORY_FULLSCREEN = "StoryFullscreenHook.StoryVideoActivity"
@@ -274,9 +273,6 @@ object BiliSymbolResolver {
         } else {
             null
         }
-        val homeRecommendAutoRefresh = scanHookPoint(HP_HOME_RECOMMEND_AUTO_REFRESH, hookPoints, scanErrors, log) {
-            scanHomeRecommendAutoRefresh(classLoader)
-        }
         val homeRecommendPreload = scanHookPoint(HP_HOME_RECOMMEND_PRELOAD, hookPoints, scanErrors, log) {
             scanHomeRecommendPreload(classLoader, ::bridge)
         }
@@ -346,7 +342,6 @@ object BiliSymbolResolver {
             blockUpdate = blockUpdate,
             mineProfile = mineProfile,
             downloadThread = downloadThread,
-            homeRecommendAutoRefresh = homeRecommendAutoRefresh,
             homeRecommendPreload = homeRecommendPreload,
             storyPlayerAd = storyPlayerAd,
             storyFullscreen = storyFullscreen,
@@ -1164,35 +1159,6 @@ object BiliSymbolResolver {
             constructor = ConstructorDescriptor.of(constructor),
             onClick = MethodDescriptor.of(onClick),
             textViewField = FieldDescriptor.of(textViewField),
-        )
-    }
-
-    private fun scanHomeRecommendAutoRefresh(
-        classLoader: ClassLoader,
-    ): SymbolScanResult<HomeRecommendAutoRefreshSymbols> {
-        val componentClass = classLoader.loadClassOrNull(HOME_AUTO_REFRESH_COMPONENT)
-            ?: return SymbolScanResult.Missing("component class not found")
-        val flushClass = classLoader.loadClassOrNull(HOME_PEGASUS_FLUSH)
-            ?: return SymbolScanResult.Missing("flush class not found")
-
-        val autoRefreshMethod = componentClass.declaredMethods
-            .firstOrNull {
-                it.parameterCount == 1 &&
-                    it.parameterTypes[0] == flushClass &&
-                    it.returnType == Void.TYPE &&
-                    !Modifier.isStatic(it.modifiers) &&
-                    !Modifier.isAbstract(it.modifiers)
-            }?.apply { isAccessible = true }
-            ?: return SymbolScanResult.Missing("auto refresh method not found")
-
-        val symbols = HomeRecommendAutoRefreshSymbols(
-            autoRefreshMethod = MethodDescriptor.of(autoRefreshMethod),
-            evidence = "param=${flushClass.name}",
-        )
-        return SymbolScanResult.Found(
-            symbols,
-            "${autoRefreshMethod.declaringClass.name}.${autoRefreshMethod.name}",
-            symbols.evidence,
         )
     }
 
@@ -3892,8 +3858,6 @@ object BiliSymbolResolver {
         "offline",
     )
 
-    private const val HOME_AUTO_REFRESH_COMPONENT = "com.bilibili.pegasus.components.AutoRefreshComponent"
-    private const val HOME_PEGASUS_FLUSH = "com.bilibili.pegasus.data.request.PegasusFlush"
     private val HOME_RECOMMEND_FRAGMENT_CLASSES = arrayOf(
         "com.bilibili.pegasus.PegasusFragment",
     )
