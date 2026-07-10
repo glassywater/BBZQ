@@ -91,11 +91,15 @@ jobs:
       - name: Build with gradle
         run: |
           chmod 777 ./gradlew
-          ./gradlew --no-daemon -PbbzqAbiFilters="${{ matrix.abis }}" -PbbzqOutputSuffix="${{ matrix.suffix }}" assembleDebug assembleRelease
+          tasks="assembleRelease"
+          if [ "${{ matrix.label }}" = "uni" ]; then
+            tasks="assembleDebug $tasks"
+          fi
+          ./gradlew --no-daemon -PbbzqAbiFilters="${{ matrix.abis }}" -PbbzqOutputSuffix="${{ matrix.suffix }}" $tasks
 
       - name: Upload debug artifact
         uses: actions/upload-artifact@v4
-        if: success()
+        if: success() && matrix.label == 'uni'
         with:
           name: bzzq-${{ env.VERSION }}-${{ matrix.label }}-debug
           path: 'app/build/outputs/apk/debug/*.apk'

@@ -1,8 +1,9 @@
-﻿package io.github.bbzq
+package io.github.bbzq
 
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewGroup
@@ -11,59 +12,32 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 
-class IntroActivity : Activity() {
+class WoMicIntroActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
-
-        val versionName = runCatching {
-            packageManager.getPackageInfo(packageName, 0).versionName
-        }.getOrDefault("unknown")
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#F6F7F8"))
             setPadding(dp(20), dp(24), dp(20), dp(24))
             addView(createTitle())
-            addView(createCard(getString(R.string.intro_module_title), getString(R.string.intro_module_body, versionName)))
-            addView(
-                createCard(
-                    getString(R.string.intro_desc_title),
-                    getString(R.string.intro_desc_body),
-                ),
-            )
-            addView(
-                createCard(
-                    getString(R.string.intro_entry_title),
-                    getString(R.string.intro_entry_body),
-                ),
-            )
-            addView(
-                createCard(
-                    "功能开关",
-                    "跳过视频广告位于 BBZQ 设置页的“播放净化”分组；开启后进入视频会提示广告片段加载结果。",
-                ),
-            )
-            addView(
-                createCard(
-                    "打开 BBZQ 设置",
-                    "也可以直接从这里进入设置页调整所有功能开关。",
-                ) {
-                    startActivity(Intent(this@IntroActivity, SettingsActivity::class.java))
-                },
-            )
-            addView(
-                createCard(
-                    getString(R.string.intro_launcher_title),
-                    getString(R.string.intro_launcher_body),
-                ),
-            )
             addView(
                 createCard(
                     "WO Mic 解锁",
-                    "伪造订阅、解锁高级音量、拦截广告，并提供已适配的 WO Mic 5.3 下载。点击查看详情。",
+                    "面向 WO Mic 的解锁 Hook：伪造订阅付费状态、解锁高级音量拖动、拦截 AdMob 广告加载。混淆类名与 WO Mic 版本绑定。",
+                ),
+            )
+            addView(
+                createCard(
+                    "下载 WO Mic 5.3",
+                    "点击跳转到 Telegram 频道下载已适配的 WO Mic 5.3 安装包。",
                 ) {
-                    startActivity(Intent(this@IntroActivity, WoMicIntroActivity::class.java))
+                    runCatching {
+                        startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/NPatch_HS/126541")),
+                        )
+                    }
                 },
             )
         }
@@ -84,7 +58,7 @@ class IntroActivity : Activity() {
 
     private fun createTitle(): TextView {
         return TextView(this).apply {
-            text = getString(R.string.app_name)
+            text = "WO Mic 解锁"
             textSize = 28f
             setTextColor(Color.parseColor("#111111"))
             setPadding(0, 0, 0, dp(16))
@@ -109,12 +83,12 @@ class IntroActivity : Activity() {
                 bottomMargin = dp(12)
             }
 
-            addView(TextView(this@IntroActivity).apply {
+            addView(TextView(this@WoMicIntroActivity).apply {
                 text = title
                 textSize = 15f
                 setTextColor(Color.parseColor("#FB7299"))
             })
-            addView(TextView(this@IntroActivity).apply {
+            addView(TextView(this@WoMicIntroActivity).apply {
                 text = body
                 textSize = 16f
                 setTextColor(Color.parseColor("#222222"))

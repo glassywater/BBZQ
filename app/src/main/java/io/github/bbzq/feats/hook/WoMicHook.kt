@@ -1,6 +1,7 @@
 package io.github.bbzq.feats.hook
 
 import android.content.Context
+import android.view.View
 import io.github.bbzq.feats.BaseRoamingHook
 import io.github.bbzq.feats.RoamingEnv
 import io.github.bbzq.feats.findClassOrNull
@@ -62,21 +63,27 @@ class WoMicHook(env: RoamingEnv) : BaseRoamingHook(env) {
         instance.setObjectField(PRODUCT_FIELD, FAKE_PRODUCT_ID)
     }
 
-    // 拖拽结束前强制解锁付费标记，规避ViewModel加载时序问题
+    // 拖拽全程（含实时 onProgressChanged）强制解锁付费标记，避免拖动中途被实时校验重置回默认音量
     private fun hookVolumeSeekbar(): Int {
         val listenerCls = classLoader.findClassOrNull(SEEKBAR_LISTENER)
             ?: return logSkip("Z2.d missing")
 
-        val count = env.hookBeforeAllMethods(listenerCls, "onStopTrackingTouch") { param ->
-            val self = param.thisObject ?: return@hookBeforeAllMethods
-            val selector = self.getObjectField("a") as? Int
-            // 仅处理音量调节滑块
-            if (selector != VOLUME_SELECTOR) return@hookBeforeAllMethods
+        // 只按名字 hook Z2.d 自身声明的 SeekBar 回调（onProgressChanged 是写入音量处，受 MainFragment.r0 门控）。
+        // 绝不能传 methodName=null：allMethods() 会向上遍历到 java.lang.Object，null 时不过滤名字，
+        // 会把继承的 hashCode/equals/toString 也一并 hook，等同对全 App 对象做全局 hook，拖垮宿主导致页面无法加载。
+        var count = 0
+        for (methodName in SEEKBAR_CALLBACKS) {
+            count += env.hookBeforeAllMethods(listenerCls, methodName) { param ->
+                val self = param.thisObject ?: return@hookBeforeAllMethods
+                val selector = self.getObjectField("a") as? Int
+                // 仅处理音量调节滑块
+                if (selector != VOLUME_SELECTOR) return@hookBeforeAllMethods
 
-            val mainFragment = self.getObjectField("b") ?: return@hookBeforeAllMethods
-            // 强制开启高级音量权限标记
-            mainFragment.setBooleanField("r0", true)
-            logOnce("volume", "r0=true on onStopTrackingTouch")
+                val mainFragment = self.getObjectField("b") ?: return@hookBeforeAllMethods
+                // 强制开启高级音量权限标记
+                mainFragment.setBooleanField("r0", true)
+                logOnce("volume", "r0=true on seekbar callback")
+            }
         }
 
         log("Volume seekbar: $count hook(s)")
@@ -85,22 +92,18 @@ class WoMicHook(env: RoamingEnv) : BaseRoamingHook(env) {
 
     // 广告拦截
     private fun hookAds(): Int {
-        var count = 0
-        count += hookAdMethods("com.google.android.gms.ads.AdView", "loadAd")
-        count += hookAdMethods("com.google.android.gms.ads.interstitial.InterstitialAd", "load", "show")
-        count += hookAdMethods("com.google.android.gms.ads.rewarded.RewardedAd", "load", "show")
+        val bannerCls = classLoader.findClassOrNull(BANNER_ADVIEW_CLASS)
+            ?: return logSkip("$BANNER_ADVIEW_CLASS missing")
+
+        // 拦截混淆后的 loadAd：跳过原方法阻止广告请求，并隐藏空的广告视图
+        val count = env.hookBeforeAllMethods(bannerCls, BANNER_LOAD_METHOD) { param ->
+            (param.thisObject as? View)?.visibility = View.GONE
+            param.result = null
+            logOnce("banner", "Blocked banner loadAd, AdView hidden")
+        }
+
         log("Ads: $count hook(s)")
         return count
-    }
-
-    private fun hookAdMethods(className: String, vararg methodNames: String): Int {
-        val cls = classLoader.findClassOrNull(className) ?: return 0
-        return methodNames.sumOf { name ->
-            env.hookBeforeAllMethods(cls, name) { param ->
-                param.result = null
-                logOnce("ad_${className.substringAfterLast('.')}_$name", "Blocked $name")
-            }
-        }
     }
 
     private val logged = hashSetOf<String>()
@@ -123,5 +126,13 @@ class WoMicHook(env: RoamingEnv) : BaseRoamingHook(env) {
         // Z2.d 音量滑块
         private const val SEEKBAR_LISTENER = "Z2.d"
         private const val VOLUME_SELECTOR = 0
+        private val SEEKBAR_CALLBACKS = listOf(
+            "onProgressChanged",
+            "onStartTrackingTouch",
+            "onStopTrackingTouch",
+        )
+        // l1.C1836f 混淆后的 AdMob 横幅 AdView，loadAd 混淆为 b(l1.C1834d) —— WO Mic 5.3
+        private const val BANNER_ADVIEW_CLASS = "l1.C1836f"
+        private const val BANNER_LOAD_METHOD = "b"
     }
 }
