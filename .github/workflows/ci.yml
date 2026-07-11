@@ -11,9 +11,30 @@ on:
       - '!.github/workflows/*'
 
 jobs:
+  version:
+    name: Compute version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Retrieve version
+        id: version
+        run: |
+          version=`awk -F "=" '$1 == "releaseName" {print $2}' gradle.properties`
+          count=`git rev-list --count HEAD`
+          echo "version=$version-$count" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build ${{ matrix.label }}
+    needs: version
     runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     strategy:
       fail-fast: false
       matrix:
@@ -42,22 +63,20 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '21'
+          cache: 'gradle'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Cache gradle
-        uses: actions/cache@v4
+        uses: android-actions/setup-android@v4.0.1
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'gradle/*.versions.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          cmdline-tools-version: 14742923
+
+      - name: Accept licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Install SDK 36
+        run: |
+          sdkmanager "platforms;android-36"
+          sdkmanager "build-tools;36.1.0"
 
       - name: Restore release keystore
         env:
@@ -82,11 +101,13 @@ jobs:
             echo "RELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD"
           } >> "$GITHUB_ENV"
 
-      - name: Retrieve version
+      - name: Restore linker guard source
+        env:
+          LINKER_GUARD_SOURCE_B64: ${{ secrets.LINKER_GUARD_SOURCE_B64 }}
         run: |
-          version=`awk -F "=" '$1 == "releaseName" {print $2}' gradle.properties`
-          count=`git rev-list --count HEAD`
-          echo "VERSION=$version-$count" >> "$GITHUB_ENV"
+          if [ -n "$LINKER_GUARD_SOURCE_B64" ]; then
+            printf '%s' "$LINKER_GUARD_SOURCE_B64" | base64 -d > app/src/main/java/io/github/bbzq/LinkerGuard.kt
+          fi
 
       - name: Build with gradle
         run: |
@@ -95,7 +116,7 @@ jobs:
           if [ "${{ matrix.label }}" = "uni" ]; then
             tasks="assembleDebug $tasks"
           fi
-          ./gradlew --no-daemon -PbbzqAbiFilters="${{ matrix.abis }}" -PbbzqOutputSuffix="${{ matrix.suffix }}" $tasks
+          ./gradlew --no-daemon --build-cache -PbbzqAbiFilters="${{ matrix.abis }}" -PbbzqOutputSuffix="${{ matrix.suffix }}" $tasks
 
       - name: Upload debug artifact
         uses: actions/upload-artifact@v4

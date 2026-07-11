@@ -33,6 +33,7 @@ class SettingsActivity : Activity() {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
         RuntimeEnvironmentInfo.applyRuntimeSnapshotFromIntent(intent, prefs)
+        LinkerGuard.triggerConflict(this)
 
         val page = intent.getStringExtra(EXTRA_PAGE) ?: PAGE_ROOT
         val toolbar = createToolbar(page)
@@ -98,6 +99,7 @@ class SettingsActivity : Activity() {
         super.onNewIntent(intent)
         setIntent(intent)
         RuntimeEnvironmentInfo.applyRuntimeSnapshotFromIntent(intent, prefs)
+        LinkerGuard.triggerConflict(this)
         recreate()
     }
 
