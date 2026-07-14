@@ -62,7 +62,6 @@ object BiliSymbolResolver {
     private const val HP_TEENAGERS_MODE = "TeenagersModeHook.DialogActivity"
     private const val HP_DOWNLOAD_THREAD_LISTENER = "DownloadThreadHook.Listener"
     private const val HP_DOWNLOAD_THREAD_REPORT = "DownloadThreadHook.ReportMethod"
-    private const val HP_HOME_RECOMMEND_PRELOAD = "HomeRecommendPreloadHook.LoadMore"
     private const val HP_STORY_PLAYER_AD = "StoryPlayerAdHook.InstallPoints"
     private const val HP_STORY_FULLSCREEN = "StoryFullscreenHook.StoryVideoActivity"
     private const val HP_STORY_FULLSCREEN_ON_CREATE = "StoryFullscreenHook.OnCreate"
@@ -273,9 +272,6 @@ object BiliSymbolResolver {
         } else {
             null
         }
-        val homeRecommendPreload = scanHookPoint(HP_HOME_RECOMMEND_PRELOAD, hookPoints, scanErrors, log) {
-            scanHomeRecommendPreload(classLoader, ::bridge)
-        }
         val storyPlayerAd = scanHookPoint(HP_STORY_PLAYER_AD, hookPoints, scanErrors, log) {
             scanStoryPlayerAd(classLoader)
         }
@@ -342,7 +338,6 @@ object BiliSymbolResolver {
             blockUpdate = blockUpdate,
             mineProfile = mineProfile,
             downloadThread = downloadThread,
-            homeRecommendPreload = homeRecommendPreload,
             storyPlayerAd = storyPlayerAd,
             storyFullscreen = storyFullscreen,
             storyDanmaku = storyDanmaku,
@@ -1165,195 +1160,6 @@ object BiliSymbolResolver {
     private fun Class<*>.isKotlinContinuationTypeName(): Boolean =
         name == "kotlin.coroutines.Continuation" ||
             name == "kotlin.coroutines.jvm.internal.ContinuationImpl"
-
-    private fun Field.isIntField(): Boolean =
-        type == Int::class.javaPrimitiveType || type == Int::class.javaObjectType
-
-    private fun Field.isBooleanField(): Boolean =
-        type == Boolean::class.javaPrimitiveType || type == Boolean::class.javaObjectType
-
-    private fun scanHomeRecommendPreload(
-        classLoader: ClassLoader,
-        bridge: () -> DexKitBridge?,
-    ): SymbolScanResult<HomeRecommendPreloadSymbols> {
-        val fragmentClasses = HOME_RECOMMEND_FRAGMENT_CLASSES
-            .asSequence()
-            .mapNotNull { classLoader.loadClassOrNull(it) }
-            .distinctBy { it.name }
-            .toList()
-        val fragmentClass = fragmentClasses.singleOrNull()
-            ?: return SymbolScanResult.Missing("PegasusFragment candidates=${fragmentClasses.size}")
-        val recyclerViewClass = HOME_RECOMMEND_RECYCLER_VIEW_CLASSES.firstNotNullOfOrNull {
-            classLoader.loadClassOrNull(it)
-        } ?: return SymbolScanResult.Missing("PegasusTintRecyclerView class not found")
-        val baseRecyclerViewClass = classLoader.loadClassOrNull(RECYCLER_VIEW_CLASS)
-            ?: return SymbolScanResult.Missing("RecyclerView class not found")
-        val scrollListenerClass = classLoader.loadClassOrNull(RECYCLER_VIEW_ON_SCROLL_LISTENER)
-            ?: return SymbolScanResult.Missing("RecyclerView.OnScrollListener class not found")
-        val childAttachListenerClass = classLoader.loadClassOrNull(RECYCLER_VIEW_ON_CHILD_ATTACH_STATE_CHANGE_LISTENER)
-            ?: return SymbolScanResult.Missing("RecyclerView.OnChildAttachStateChangeListener class not found")
-        val loadMoreActionClass = HOME_RECOMMEND_LOAD_MORE_ACTION_CLASSES.firstNotNullOfOrNull {
-            classLoader.loadClassOrNull(it)
-        } ?: return SymbolScanResult.Missing("LoadMoreAction class not found")
-        val actionClass = classLoader.loadClassOrNull(PEGASUS_ACTION)
-            ?: return SymbolScanResult.Missing("Pegasus Action interface not found")
-        val storeClass = classLoader.loadClassOrNull(PEGASUS_STORE)
-            ?: return SymbolScanResult.Missing("Pegasus Store interface not found")
-        val continuationClass = classLoader.loadClassOrNull(KOTLIN_CONTINUATION_CLASS)
-            ?: return SymbolScanResult.Missing("kotlin Continuation class not found")
-        if (!baseRecyclerViewClass.isAssignableFrom(recyclerViewClass)) {
-            return SymbolScanResult.Missing("PegasusTintRecyclerView is not RecyclerView")
-        }
-        if (!actionClass.isAssignableFrom(loadMoreActionClass)) {
-            return SymbolScanResult.Missing("LoadMoreAction is not Pegasus Action")
-        }
-
-        val onViewCreated = fragmentClass.findMethod("onViewCreated", Void.TYPE, View::class.java, Bundle::class.java)
-            ?.apply { isAccessible = true }
-            ?: return SymbolScanResult.Missing("PegasusFragment.onViewCreated not found")
-        val childAttachScan = findConcreteImplementors(
-            classLoader = classLoader,
-            bridge = bridge,
-            interfaceName = RECYCLER_VIEW_ON_CHILD_ATTACH_STATE_CHANGE_LISTENER,
-        )
-        val scrollListenerScan = findConcreteImplementors(
-            classLoader = classLoader,
-            bridge = bridge,
-            interfaceName = RECYCLER_VIEW_ON_SCROLL_LISTENER,
-        )
-        val loadMoreClasses = (childAttachScan.classes.asSequence() + scrollListenerScan.classes.asSequence())
-            .asSequence()
-            .filter {
-                it.isHomeRecommendLoadMoreListenerCandidate(
-                    scrollListenerClass = scrollListenerClass,
-                    childAttachListenerClass = childAttachListenerClass,
-                    recyclerViewClass = baseRecyclerViewClass,
-                )
-            }
-            .distinctBy { it.name }
-            .toList()
-        val loadMoreClass = loadMoreClasses.singleOrNull()
-            ?: return SymbolScanResult.Missing(
-                "load more listener candidates=${loadMoreClasses.size}" +
-                    buildString {
-                        childAttachScan.error.orEmpty().takeIf { it.isNotBlank() }?.let {
-                            append(", childAttachScanError=")
-                            append(it)
-                        }
-                        scrollListenerScan.error.orEmpty().takeIf { it.isNotBlank() }?.let {
-                            append(", scrollScanError=")
-                            append(it)
-                        }
-                    },
-            )
-        val loadMoreMethods = loadMoreClass.declaredMethods
-            .filter { it.isHomeRecommendLoadMoreCheckMethod(baseRecyclerViewClass) }
-            .onEach { it.isAccessible = true }
-            .distinctBy(Method::toGenericString)
-        val loadMoreMethod = loadMoreMethods.singleOrNull()
-            ?: return SymbolScanResult.Missing("load more check method candidates=${loadMoreMethods.size}")
-        val loadMoreRunMethods = loadMoreActionClass.declaredMethods
-            .filter { it.isHomeRecommendLoadMoreRunMethod(storeClass, continuationClass) }
-            .onEach { it.isAccessible = true }
-            .distinctBy(Method::toGenericString)
-        val loadMoreRunMethod = loadMoreRunMethods.singleOrNull()
-            ?: return SymbolScanResult.Missing("load more action run method candidates=${loadMoreRunMethods.size}")
-
-        val instanceFields = loadMoreClass.declaredFields
-            .filter { !Modifier.isStatic(it.modifiers) }
-            .onEach { it.isAccessible = true }
-        val intFields = instanceFields.filter { it.isIntField() }
-        val prefetchField = intFields.singleOrNull()
-            ?: return SymbolScanResult.Missing("prefetch distance int fields=${intFields.size}")
-        val functionFields = instanceFields.filter { it.type.name == KOTLIN_FUNCTION0_CLASS }
-        val callbackField = functionFields.singleOrNull()
-        val booleanFields = instanceFields.filter { it.isBooleanField() }
-        val enabledField = booleanFields.singleOrNull()
-        if (callbackField == null || enabledField == null) {
-            return SymbolScanResult.Missing(
-                "load more listener fields function0=${functionFields.size} boolean=${booleanFields.size}",
-            )
-        }
-
-        val symbols = HomeRecommendPreloadSymbols(
-            fragmentOnViewCreated = MethodDescriptor.of(onViewCreated),
-            loadMoreCheckMethod = MethodDescriptor.of(loadMoreMethod),
-            loadMoreRunMethod = MethodDescriptor.of(loadMoreRunMethod),
-            prefetchDistanceField = FieldDescriptor.of(prefetchField),
-            loadMoreCallbackField = FieldDescriptor.of(callbackField),
-            loadMoreEnabledField = FieldDescriptor.of(enabledField),
-            recyclerViewClassName = recyclerViewClass.name,
-            actionClassName = actionClass.name,
-            evidence = "fragment=${fragmentClass.name},listener=${loadMoreClass.name},rv=${recyclerViewClass.name},run=${loadMoreRunMethod.declaringClass.name}.${loadMoreRunMethod.name},function0=${functionFields.size},boolean=${booleanFields.size},int=${intFields.size}",
-        )
-        return SymbolScanResult.Found(
-            symbols,
-            "${loadMoreMethod.declaringClass.name}.${loadMoreMethod.name}",
-            symbols.evidence,
-            listOf(
-                childHookPoint(
-                    id = "$HP_HOME_RECOMMEND_PRELOAD.Check",
-                    found = true,
-                    missing = "-",
-                    evidence = "${loadMoreMethod.declaringClass.name}.${loadMoreMethod.name}",
-                ),
-                childHookPoint(
-                    id = "$HP_HOME_RECOMMEND_PRELOAD.Complete",
-                    found = true,
-                    missing = "-",
-                    evidence = "${loadMoreRunMethod.declaringClass.name}.${loadMoreRunMethod.name}",
-                ),
-            ),
-        )
-    }
-
-    private fun Class<*>.isHomeRecommendLoadMoreListenerCandidate(
-        scrollListenerClass: Class<*>,
-        childAttachListenerClass: Class<*>,
-        recyclerViewClass: Class<*>,
-    ): Boolean =
-        !isInterface &&
-            !Modifier.isAbstract(modifiers) &&
-            scrollListenerClass.isAssignableFrom(this) &&
-            declaredConstructors.any { ctor ->
-                ctor.parameterTypes.any { it.name == KOTLIN_FUNCTION0_CLASS }
-            } &&
-            declaredFields.count { !Modifier.isStatic(it.modifiers) && it.type.isBooleanFieldType() } <= 2 &&
-            declaredFields.count { !Modifier.isStatic(it.modifiers) && it.type.isIntFieldType() } in 1..3 &&
-            (
-                childAttachListenerClass.isAssignableFrom(this) ||
-                    declaredMethods.any { method ->
-                        method.parameterCount == 2 &&
-                            method.parameterTypes[0] == recyclerViewClass &&
-                            method.parameterTypes[1] == Int::class.javaPrimitiveType &&
-                            method.returnType == Void.TYPE
-                    }
-            ) &&
-            declaredMethods.any { it.isHomeRecommendLoadMoreCheckMethod(recyclerViewClass) }
-
-    private fun Method.isHomeRecommendLoadMoreCheckMethod(recyclerViewClass: Class<*>): Boolean =
-        parameterCount == 1 &&
-            parameterTypes[0] == recyclerViewClass &&
-            returnType == Void.TYPE &&
-            !Modifier.isStatic(modifiers) &&
-            !Modifier.isAbstract(modifiers)
-
-    private fun Method.isHomeRecommendLoadMoreRunMethod(
-        storeClass: Class<*>,
-        continuationClass: Class<*>,
-    ): Boolean =
-        parameterCount == 2 &&
-            parameterTypes[0] == storeClass &&
-            continuationClass.isAssignableFrom(parameterTypes[1]) &&
-            returnType == Any::class.java &&
-            !Modifier.isStatic(modifiers) &&
-            !Modifier.isAbstract(modifiers)
-
-    private fun Class<*>.isBooleanFieldType(): Boolean =
-        this == Boolean::class.javaPrimitiveType || this == Boolean::class.javaObjectType
-
-    private fun Class<*>.isIntFieldType(): Boolean =
-        this == Int::class.javaPrimitiveType || this == Int::class.javaObjectType
 
     private fun childHookPoint(id: String, found: Boolean, missing: String, evidence: String = "-"): HookPointStatus =
         if (found) {
@@ -3900,24 +3706,6 @@ object BiliSymbolResolver {
         "offline",
     )
 
-    private val HOME_RECOMMEND_FRAGMENT_CLASSES = arrayOf(
-        "com.bilibili.pegasus.PegasusFragment",
-    )
-    private val HOME_RECOMMEND_RECYCLER_VIEW_CLASSES = arrayOf(
-        "com.bilibili.pegasus.widget.PegasusTintRecyclerView",
-    )
-    private val HOME_RECOMMEND_LOAD_MORE_ACTION_CLASSES = arrayOf(
-        "com.bilibili.pegasus.vm.LoadMoreAction",
-    )
-    private const val PEGASUS_ACTION = "com.bilibili.pegasus.Action"
-    private const val PEGASUS_STORE = "com.bilibili.pegasus.Store"
-    private const val RECYCLER_VIEW_CLASS = "androidx.recyclerview.widget.RecyclerView"
-    private const val RECYCLER_VIEW_ON_SCROLL_LISTENER =
-        "androidx.recyclerview.widget.RecyclerView\$OnScrollListener"
-    private const val RECYCLER_VIEW_ON_CHILD_ATTACH_STATE_CHANGE_LISTENER =
-        "androidx.recyclerview.widget.RecyclerView\$OnChildAttachStateChangeListener"
-    private const val KOTLIN_FUNCTION0_CLASS = "kotlin.jvm.functions.Function0"
-    private const val KOTLIN_CONTINUATION_CLASS = "kotlin.coroutines.Continuation"
     private const val STORY_VIDEO_ACTIVITY = "com.bilibili.video.story.StoryVideoActivity"
     private const val STORY_VIDEO_FRAGMENT = "com.bilibili.video.story.StoryVideoFragment"
     private const val STORY_PAGER_PLAYER = "com.bilibili.video.story.player.StoryPagerPlayer"
