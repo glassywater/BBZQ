@@ -614,14 +614,14 @@ object BiliSymbolResolver {
         val activityCount = listOfNotNull(activityOnCreate, activityOnResume, activityOnStop).size
 
         val headerClass = classLoader.loadClassOrNull(REWARD_HEADER_VIEW)
-        val headerSetTotalTime = headerClass?.findMethod("setTotalTime", Void.TYPE, Int::class.javaPrimitiveType!!)
-        val headerSetElapsedTime = headerClass?.findMethod("setElapsedTime", Void.TYPE, Long::class.javaPrimitiveType!!)
+        val headerSetTotalTime = headerClass?.findRewardTimerSetter("setTotalTime", Int::class.javaPrimitiveType!!)
+        val headerSetElapsedTime = headerClass?.findRewardTimerSetter("setElapsedTime", Long::class.javaPrimitiveType!!)
         val headerStartTimer = headerClass?.findMethod("startTimer", Void.TYPE)
         val headerCount = listOfNotNull(headerSetTotalTime, headerSetElapsedTime, headerStartTimer).size
 
         val countDownClass = classLoader.loadClassOrNull(REWARD_COUNT_DOWN_TEXT_VIEW)
-        val countDownSetTotalTime = countDownClass?.findMethod("setTotalTime", Void.TYPE, Int::class.javaPrimitiveType!!)
-        val countDownSetElapsedTime = countDownClass?.findMethod("setElapsedTime", Void.TYPE, Long::class.javaPrimitiveType!!)
+        val countDownSetTotalTime = countDownClass?.findRewardTimerSetter("setTotalTime", Int::class.javaPrimitiveType!!)
+        val countDownSetElapsedTime = countDownClass?.findRewardTimerSetter("setElapsedTime", Long::class.javaPrimitiveType!!)
         val countDownCount = listOfNotNull(countDownSetTotalTime, countDownSetElapsedTime).size
 
         val miniGameRewardClass = classLoader.loadClassOrNull(REWARD_MINI_GAME_ABILITY)
@@ -705,6 +705,17 @@ object BiliSymbolResolver {
         )
         return SymbolScanResult.Found(symbols, "RewardAd", symbols.evidence, hookPoints)
     }
+
+    /**
+     * Kotlin may append a module name to public Java method names after a module split.
+     * Keep accepting the stable name while requiring the original timer signature.
+     */
+    private fun Class<*>.findRewardTimerSetter(name: String, parameterType: Class<*>): Method? =
+        allMethods().firstOrNull { method ->
+            method.returnType == Void.TYPE &&
+                method.parameterTypes.contentEquals(arrayOf(parameterType)) &&
+                (method.name == name || method.name.startsWith("$name\$"))
+        }?.apply { isAccessible = true }
 
     private fun scanTryFreeQuality(
         classLoader: ClassLoader,
@@ -1519,17 +1530,19 @@ object BiliSymbolResolver {
             ?: return SymbolScanResult.Missing("story detail class not found")
         val storyPagerPlayer = classLoader.loadClassOrNull(STORY_PAGER_PLAYER)
             ?: return SymbolScanResult.Missing("story pager player class not found")
-        val commentContainerInterface = classLoader.loadClassOrNull(STORY_COMMENT_CONTAINER_INTERFACE)
+        val commentContainerInterface = STORY_COMMENT_CONTAINER_INTERFACE_CLASSES
+            .firstNotNullOfOrNull(classLoader::loadClassOrNull)
             ?: return SymbolScanResult.Missing("story comment container interface not found")
-        val commentCallback = classLoader.loadClassOrNull(STORY_COMMENT_CALLBACK)
+        val commentCallback = STORY_COMMENT_CALLBACK_CLASSES.firstNotNullOfOrNull(classLoader::loadClassOrNull)
             ?: return SymbolScanResult.Missing("story comment callback class not found")
-        val commentOffsetCallback = classLoader.loadClassOrNull(STORY_COMMENT_OFFSET_CALLBACK)
+        val commentOffsetCallback = STORY_COMMENT_OFFSET_CALLBACK_CLASSES.firstNotNullOfOrNull(classLoader::loadClassOrNull)
             ?: return SymbolScanResult.Missing("story comment offset callback class not found")
-        val commentPlayerCallback = classLoader.loadClassOrNull(STORY_COMMENT_PLAYER_CALLBACK)
+        val commentPlayerCallback = STORY_COMMENT_PLAYER_CALLBACK_CLASSES.firstNotNullOfOrNull(classLoader::loadClassOrNull)
             ?: return SymbolScanResult.Missing("story comment player callback class not found")
-        val verticalContainer = classLoader.loadClassOrNull(STORY_COMMENT_VERTICAL_CONTAINER)
+        val verticalContainer = STORY_COMMENT_VERTICAL_CONTAINER_CLASSES.firstNotNullOfOrNull(classLoader::loadClassOrNull)
             ?: return SymbolScanResult.Missing("story vertical comment container class not found")
-        val landscapeContainer = classLoader.loadClassOrNull(STORY_COMMENT_LANDSCAPE_CONTAINER)
+        val landscapeContainer = STORY_COMMENT_LANDSCAPE_CONTAINER_CLASSES
+            .firstNotNullOfOrNull(classLoader::loadClassOrNull)
         val interactLayerService = classLoader.loadClassOrNull(INTERACT_LAYER_SERVICE)
             ?: return SymbolScanResult.Missing("interact layer service class not found")
         val introCommentService = classLoader.loadClassOrNull(STORY_INTRO_COMMENT_SERVICE)
@@ -2399,8 +2412,7 @@ object BiliSymbolResolver {
             .mapNotNull { classLoader.loadClassOrNull(it) }
             .flatMap { type ->
                 type.declaredMethods.asSequence().filter { method ->
-                    method.returnType == Void.TYPE &&
-                        method.parameterCount == 2 &&
+                    method.parameterCount == 2 &&
                         !method.name.contains("lambda", ignoreCase = true) &&
                         method.parameterTypes.firstOrNull()?.isQuickReplyDialogIntentType() == true &&
                         method.parameterTypes.getOrNull(1)?.let { Continuation::class.java.isAssignableFrom(it) } == true
@@ -3811,14 +3823,30 @@ object BiliSymbolResolver {
     private const val STORY_RIGHT_MODULE = "com.bilibili.video.story.module.StoryRightModule"
     private const val STORY_BOTTOM_MODULE = "com.bilibili.video.story.module.StoryBottomModule"
     private const val STORY_DETAIL = "com.bilibili.video.story.StoryDetail"
-    private const val STORY_COMMENT_CONTAINER_INTERFACE = "com.bilibili.video.story.action.StoryCommentHelper\$b"
-    private const val STORY_COMMENT_VERTICAL_CONTAINER =
-        "com.bilibili.video.story.action.StoryCommentHelper\$VerticalContainerV2"
-    private const val STORY_COMMENT_LANDSCAPE_CONTAINER =
-        "com.bilibili.video.story.action.StoryCommentHelper\$d"
-    private const val STORY_COMMENT_CALLBACK = "com.bilibili.video.story.action.StoryCommentHelper\$c"
-    private const val STORY_COMMENT_OFFSET_CALLBACK = "com.bilibili.video.story.action.StoryCommentHelper\$e"
-    private const val STORY_COMMENT_PLAYER_CALLBACK = "com.bilibili.video.story.action.StoryCommentHelper\$a"
+    private val STORY_COMMENT_CONTAINER_INTERFACE_CLASSES = arrayOf(
+        "com.bilibili.video.story.action.StoryCommentHelper\$b",
+        "com.bilibili.video.story.action.C\$b",
+    )
+    private val STORY_COMMENT_VERTICAL_CONTAINER_CLASSES = arrayOf(
+        "com.bilibili.video.story.action.StoryCommentHelper\$VerticalContainerV2",
+        "com.bilibili.video.story.action.C\$f",
+    )
+    private val STORY_COMMENT_LANDSCAPE_CONTAINER_CLASSES = arrayOf(
+        "com.bilibili.video.story.action.StoryCommentHelper\$d",
+        "com.bilibili.video.story.action.C\$d",
+    )
+    private val STORY_COMMENT_CALLBACK_CLASSES = arrayOf(
+        "com.bilibili.video.story.action.StoryCommentHelper\$c",
+        "com.bilibili.video.story.action.C\$c",
+    )
+    private val STORY_COMMENT_OFFSET_CALLBACK_CLASSES = arrayOf(
+        "com.bilibili.video.story.action.StoryCommentHelper\$e",
+        "com.bilibili.video.story.action.C\$e",
+    )
+    private val STORY_COMMENT_PLAYER_CALLBACK_CLASSES = arrayOf(
+        "com.bilibili.video.story.action.StoryCommentHelper\$a",
+        "com.bilibili.video.story.action.C\$a",
+    )
     private const val STORY_INTRO_COMMENT_SERVICE = "com.bilibili.video.story.action.widget.comment.p"
     private const val STORY_TAB_CONFIG = "com.bilibili.video.story.tab.W0"
     private const val KOTLIN_UNIT = "kotlin.Unit"
@@ -3901,6 +3929,8 @@ object BiliSymbolResolver {
         "com.bilibili.p4439app.comment3.p4518ui.CommentContainerImpl\$attachRepository\$5",
         "com.bilibili.app.comment3.ui.CommentContainerImpl\$attachRepository\$5\$C636262",
         "com.bilibili.p4439app.comment3.p4518ui.CommentContainerImpl\$attachRepository\$5\$C636262",
+        "com.bilibili.app.comment3.ui.CommentContainerImpl\$attachRepository\$5\$2",
+        "com.bilibili.p4439app.comment3.p4518ui.CommentContainerImpl\$attachRepository\$5\$2",
     )
     private val CMT_VOTE_WIDGET_CLASSES = arrayOf(
         "com.bilibili.app.comment.ext.widgets.CmtVoteWidget",
