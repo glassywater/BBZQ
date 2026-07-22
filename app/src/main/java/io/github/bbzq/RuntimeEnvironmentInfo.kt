@@ -194,6 +194,9 @@ object RuntimeEnvironmentInfo {
             ModuleSettings.getKnownHomeComponents(prefs)
                 .takeIf { it.isNotEmpty() }
                 ?.let { put(ModuleSettings.KEY_KNOWN_HOME_COMPONENTS, it) }
+            ModuleSettings.getKnownMineComponents(prefs)
+                .takeIf { it.isNotEmpty() }
+                ?.let { put(ModuleSettings.KEY_KNOWN_MINE_COMPONENTS, it) }
         }
     }
 
@@ -210,6 +213,7 @@ object RuntimeEnvironmentInfo {
             ModuleSettings.KEY_KNOWN_BOTTOM_BAR_ITEMS -> ModuleSettings.cacheKnownBottomBarItems(updated)
             ModuleSettings.KEY_KNOWN_HOME_RECOMMEND_TABS -> ModuleSettings.cacheKnownHomeRecommendTabs(updated)
             ModuleSettings.KEY_KNOWN_HOME_COMPONENTS -> ModuleSettings.cacheKnownHomeComponents(updated)
+            ModuleSettings.KEY_KNOWN_MINE_COMPONENTS -> ModuleSettings.cacheKnownMineComponents(updated)
         }
     }
 
@@ -320,6 +324,7 @@ object RuntimeEnvironmentInfo {
         ModuleSettings.KEY_KNOWN_BOTTOM_BAR_ITEMS,
         ModuleSettings.KEY_KNOWN_HOME_RECOMMEND_TABS,
         ModuleSettings.KEY_KNOWN_HOME_COMPONENTS,
+        ModuleSettings.KEY_KNOWN_MINE_COMPONENTS,
     )
 
     private data class VersionInfo(

@@ -309,6 +309,13 @@
     <string name="mine_remove_vip_summary">移除“我的”页面中的大会员卡片展示。</string>
     <string name="mine_keep_vip_space_title">保留大会员占位空间</string>
     <string name="mine_keep_vip_space_summary">隐藏大会员入口时保留其占位空间，避免页面跳动。</string>
+    <string name="mine_component_hide_title">自定义隐藏我的页组件</string>
+    <string name="mine_component_hide_summary">打开“我的”页后，可按项目选择需要隐藏的服务入口。</string>
+    <string name="mine_component_title">我的页组件</string>
+    <string name="mine_component_unavailable_summary">暂无组件数据。请先打开一次哔哩哔哩“我的”页，再回来设置。</string>
+    <string name="mine_component_info_summary">勾选代表保留组件，取消勾选后将隐藏对应入口。</string>
+    <string name="mine_component_picker_title">选择要隐藏的组件</string>
+    <string name="mine_component_picker_summary">已隐藏 %1$d / %2$d 项</string>
     <string name="skip_video_ad_auto_like_disable_dialog_confirm">仍然关闭</string>
     <string name="skip_video_ad_auto_like_disable_dialog_cancel">取消</string>
     

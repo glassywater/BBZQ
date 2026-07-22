@@ -66,6 +66,9 @@ class SettingsContentFactory(
     private lateinit var storyVideoComponentAlphaSeekBar: SeekBar
     private lateinit var skipVideoAdAutoLikeSwitch: Switch
     private lateinit var blockedCountView: TextView
+    private lateinit var customMineComponentHideSwitch: Switch
+    private lateinit var mineComponentPickerRow: View
+    private lateinit var mineComponentPickerSummary: TextView
     private lateinit var symbolScanStatusSummary: TextView
     /** 「检查更新」行的摘要文本视图，用于回显检查状态；界面销毁时置空避免泄漏。 */
     private var updateCheckSummaryView: TextView? = null
@@ -531,12 +534,34 @@ class SettingsContentFactory(
                 false,
             ),
             createSwitchRow(
+                context.getString(R.string.mine_component_hide_title),
+                context.getString(R.string.mine_component_hide_summary),
+                ModuleSettings.KEY_CUSTOM_MINE_COMPONENT_HIDE_ENABLED,
+                false,
+            ) {
+                customMineComponentHideSwitch = it
+            },
+        ).toMutableList().also { rows ->
+            val components = mineComponentItems()
+            if (components.isEmpty()) {
+                rows += createInfoRow(
+                    context.getString(R.string.mine_component_title),
+                    context.getString(R.string.mine_component_unavailable_summary),
+                )
+            } else {
+                rows += createInfoRow(
+                    context.getString(R.string.mine_component_title),
+                    context.getString(R.string.mine_component_info_summary),
+                )
+                rows += createMineComponentPickerRow(components)
+            }
+            rows += createSwitchRow(
                 context.getString(R.string.full_number_format_title),
                 context.getString(R.string.full_number_format_summary),
                 ModuleSettings.KEY_FULL_NUMBER_FORMAT_ENABLED,
                 false,
-            ),
-        )
+            )
+        }
     }
 
     private fun skipVideoAdOverviewRows(): List<View> {
@@ -1460,6 +1485,47 @@ class SettingsContentFactory(
         }
     }
 
+    private fun createMineComponentPickerRow(items: List<MineComponentItem>): View {
+        mineComponentPickerSummary = TextView(context).apply {
+            textSize = 12f
+            setTextColor(SUMMARY_COLOR)
+            setPadding(0, dp(4), 0, 0)
+        }
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { showMineComponentPickerDialog(items) }
+            addView(TextView(context).apply {
+                text = context.getString(R.string.mine_component_picker_title)
+                textSize = 15f
+                setTextColor(TITLE_COLOR)
+            })
+            addView(mineComponentPickerSummary)
+        }.also { mineComponentPickerRow = it }
+    }
+
+    private fun showMineComponentPickerDialog(items: List<MineComponentItem>) {
+        val retained = BooleanArray(items.size) { index ->
+            items[index].name !in ModuleSettings.getHiddenMineComponents(prefs)
+        }
+        AlertDialog.Builder(context)
+            .setTitle(R.string.mine_component_title)
+            .setMultiChoiceItems(items.map(MineComponentItem::name).toTypedArray(), retained) { _, which, isChecked ->
+                retained[which] = isChecked
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .setPositiveButton(R.string.dialog_save) { _, _ ->
+                val hidden = items.indices
+                    .filterNot { retained[it] }
+                    .mapTo(linkedSetOf()) { items[it].name }
+                prefs.edit().putStringSet(ModuleSettings.KEY_HIDDEN_MINE_COMPONENTS, hidden).apply()
+                refresh()
+            }
+            .show()
+    }
+
     private fun createSwitchRow(
         title: String,
         summary: String,
@@ -1591,6 +1657,8 @@ class SettingsContentFactory(
         val hideAllHomeComponentsEnabled = ModuleSettings.isHideAllHomeComponentsEnabled(prefs)
         val customHomeComponentHideEnabled = ModuleSettings.isCustomHomeComponentHideEnabled(prefs)
         val hiddenHomeComponents = ModuleSettings.getHiddenHomeComponents(prefs)
+        val customMineComponentHideEnabled = ModuleSettings.isCustomMineComponentHideEnabled(prefs)
+        val hiddenMineComponents = ModuleSettings.getHiddenMineComponents(prefs)
         val sponsorBlockEnabled = ModuleSettings.isSkipVideoAdEnabled(prefs)
         val skipVideoAdAutoLikeEnabled = ModuleSettings.isSkipVideoAdAutoLikeEnabled(prefs)
 
@@ -1659,6 +1727,22 @@ class SettingsContentFactory(
         homeComponentCheckBoxes.forEach { (className, checkBox) ->
             checkBox.isEnabled = homeComponentPickerEnabled
             checkBox.isChecked = className !in hiddenHomeComponents
+        }
+        if (::customMineComponentHideSwitch.isInitialized) {
+            customMineComponentHideSwitch.isChecked = customMineComponentHideEnabled
+        }
+        if (::mineComponentPickerRow.isInitialized) {
+            mineComponentPickerRow.isEnabled = customMineComponentHideEnabled
+            mineComponentPickerRow.alpha = if (customMineComponentHideEnabled) 1f else 0.45f
+        }
+        if (::mineComponentPickerSummary.isInitialized) {
+            val components = mineComponentItems()
+            val hiddenCount = components.count { it.name in hiddenMineComponents }
+            mineComponentPickerSummary.text = context.getString(
+                R.string.mine_component_picker_summary,
+                hiddenCount,
+                components.size,
+            )
         }
 
         if (::storyVideoAdSwitch.isInitialized) {
@@ -1853,6 +1937,13 @@ class SettingsContentFactory(
             .distinctBy(HomeComponentItem::className)
             .sortedWith(compareBy<HomeComponentItem> { it.order }.thenBy { it.name }.thenBy { it.className })
 
+    private fun mineComponentItems(): List<MineComponentItem> =
+        ModuleSettings.getKnownMineComponents(prefs)
+            .filter { it.isNotBlank() }
+            .map(::MineComponentItem)
+            .distinctBy(MineComponentItem::name)
+            .sortedBy(MineComponentItem::name)
+
     private fun parseBottomBarItem(raw: String): BottomBarItem? {
         val parts = raw.split('\t', limit = 4)
         if (parts.size == 4) {
@@ -1943,6 +2034,8 @@ class SettingsContentFactory(
         val name: String,
         val className: String,
     )
+
+    private data class MineComponentItem(val name: String)
 
     private companion object {
         private const val PROJECT_REPOSITORY_URL = "https://github.com/HSSkyBoy/BBZQ"

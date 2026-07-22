@@ -3762,6 +3762,7 @@ object BiliSymbolResolver {
     private val MINE_FRAGMENT_CLASS_NAMES = listOf(
         "tv.danmaku.bili.ui.main2.mine.HomeUserCenterFragment",
         "tv.danmaku.p9138bili.p9228ui.main2.p9247mine.HomeUserCenterFragment",
+        "p4235tv.danmaku.bili.ui.main2.mine.HomeUserCenterFragment",
     )
 
     private val MINE_VIP_VIEW_CLASS_NAMES = listOf(
@@ -3772,6 +3773,7 @@ object BiliSymbolResolver {
 
     private val MINE_VIP_MANAGER_CLASS_NAMES = listOf(
         "tv.danmaku.bili.ui.main2.mine.modularvip.MineVipModuleManager",
+        "p4235tv.danmaku.bili.ui.main2.mine.modularvip.MineVipModuleManager",
     )
 
     private val DOWNLOAD_THREAD_LISTENER_CLASS_TERMS = listOf(

@@ -82,6 +82,9 @@ object ModuleSettings {
     const val KEY_COMMENT_NO_OPERATION = "vid_comment_no_operation"
     const val KEY_MINE_REMOVE_VIP = "mine_remove_vip"
     const val KEY_MINE_KEEP_VIP_SPACE = "mine_keep_vip_space"
+    const val KEY_CUSTOM_MINE_COMPONENT_HIDE_ENABLED = "custom_mine_component_hide_enabled"
+    const val KEY_HIDDEN_MINE_COMPONENTS = "hidden_mine_components"
+    const val KEY_KNOWN_MINE_COMPONENTS = "known_mine_components"
     const val MAX_HOME_RECOMMEND_TITLE_KEYWORDS = 64
 
     const val HOME_RECOMMEND_FILTER_AD = "ad"
@@ -164,6 +167,8 @@ object ModuleSettings {
     private var knownHomeRecommendTabsCache: Set<String>? = null
     @Volatile
     private var knownHomeComponentsCache: Set<String>? = null
+    @Volatile
+    private var knownMineComponentsCache: Set<String>? = null
 
     enum class ExportableValueType {
         BOOLEAN,
@@ -261,6 +266,9 @@ object ModuleSettings {
         ExportableConfigSpec(KEY_COMMENT_NO_OPERATION, ExportableValueType.BOOLEAN) { it.getBoolean(KEY_COMMENT_NO_OPERATION, false) },
         ExportableConfigSpec(KEY_MINE_REMOVE_VIP, ExportableValueType.BOOLEAN) { it.getBoolean(KEY_MINE_REMOVE_VIP, false) },
         ExportableConfigSpec(KEY_MINE_KEEP_VIP_SPACE, ExportableValueType.BOOLEAN) { it.getBoolean(KEY_MINE_KEEP_VIP_SPACE, false) },
+        ExportableConfigSpec(KEY_CUSTOM_MINE_COMPONENT_HIDE_ENABLED, ExportableValueType.BOOLEAN) {
+            it.getBoolean(KEY_CUSTOM_MINE_COMPONENT_HIDE_ENABLED, false)
+        },
     )
 
     val exportableManualSpecs = buildList<ExportableConfigSpec> {
@@ -282,6 +290,9 @@ object ModuleSettings {
         })
         add(ExportableConfigSpec(KEY_HIDDEN_HOME_COMPONENTS, ExportableValueType.STRING_SET) {
             it.getStringSet(KEY_HIDDEN_HOME_COMPONENTS, emptySet<String>())?.toSet() ?: emptySet<String>()
+        })
+        add(ExportableConfigSpec(KEY_HIDDEN_MINE_COMPONENTS, ExportableValueType.STRING_SET) {
+            it.getStringSet(KEY_HIDDEN_MINE_COMPONENTS, emptySet<String>())?.toSet() ?: emptySet<String>()
         })
         add(ExportableConfigSpec(KEY_HIDDEN_BOTTOM_BAR_ITEMS, ExportableValueType.STRING_SET) {
             it.getStringSet(KEY_HIDDEN_BOTTOM_BAR_ITEMS, emptySet<String>())?.toSet() ?: emptySet<String>()
@@ -482,6 +493,21 @@ object ModuleSettings {
 
     fun cacheKnownHomeComponents(items: Set<String>) {
         knownHomeComponentsCache = items.toSet()
+    }
+
+    fun isCustomMineComponentHideEnabled(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(KEY_CUSTOM_MINE_COMPONENT_HIDE_ENABLED, false)
+
+    fun getHiddenMineComponents(prefs: SharedPreferences): Set<String> =
+        prefs.getStringSet(KEY_HIDDEN_MINE_COMPONENTS, emptySet()) ?: emptySet()
+
+    fun getKnownMineComponents(prefs: SharedPreferences): Set<String> =
+        knownMineComponentsCache
+            ?: prefs.getStringSet(KEY_KNOWN_MINE_COMPONENTS, emptySet())
+            ?: emptySet()
+
+    fun cacheKnownMineComponents(items: Set<String>) {
+        knownMineComponentsCache = items.toSet()
     }
 
     fun isPurifyStoryVideoAdEnabled(prefs: SharedPreferences): Boolean =
